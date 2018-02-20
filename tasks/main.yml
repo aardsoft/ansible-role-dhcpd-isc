@@ -1,0 +1,38 @@
+- name: Install dhcpd (SuSE)
+  zypper:
+    name: "dhcp-server"
+    state: present
+  when: ansible_os_family == "Suse"
+
+- name: Install dhcpd (RedHat/dnf)
+  dnf:
+    name: "dhcp-server"
+    state: present
+  when: ansible_os_family == "RedHat" and ansible_pkg_mgr == "dnf"
+
+- name: Install dhcpd (RedHat/yum)
+  yum:
+    name: "dhcp-server"
+    state: present
+  when: ansible_os_family == "RedHat" and ansible_pkg_mgr == "yum"
+
+- name: update dhcpd configuration
+  template:
+    src: dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart dhcpd
+
+- name: configure firewall
+  firewalld:
+    service: dhcp
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_os_family == "RedHat"
+
+- name: enable dhcpd
+  service: name=dhcpd enabled=yes

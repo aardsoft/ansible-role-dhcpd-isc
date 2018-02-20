@@ -1,0 +1,83 @@
+#jinja2: lstrip_blocks: True
+# {{ ansible_managed }}
+#
+# DHCP Server Configuration file.
+#   see dhcpd.conf(5) man page
+#
+
+{# loop over global options #}
+{% if dhcp_networks.options is defined %}
+ {% for option in dhcp_networks.options %}
+{{option}};
+ {% endfor %}
+{% endif %}
+
+{% for vlan in vlans %}
+{% if dhcp_networks[vlan] is defined %}
+shared-network {{vlan}} {
+  {# loop over shared-network specific options #}
+  {% if dhcp_networks[vlan].options is defined %}
+   {% for option in dhcp_networks[vlan].options %}
+  {{option}};
+   {% endfor %}
+  {% endif %}
+  {# loop over the subnet definitions #}
+  {% for subnet in dhcp_networks[vlan].subnets %}
+  subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
+    {% if vlan == 'default' %}
+    option domain-name "{{dns_domain}}";
+    option domain-search "{{dns_domain}}", "{{vlan}}.{{dns_domain}}";
+    {% else %}
+    option domain-name "{{vlan}}.{{dns_domain}}";
+    option domain-search "{{vlan}}.{{dns_domain}}", "{{dns_domain}}";
+    {% endif %}
+
+    {% if dhcp_networks[vlan].subnets[subnet].options is defined %}
+      {% for option in dhcp_networks[vlan].subnets[subnet].options %}
+    {{option}};
+      {% endfor %}
+    {% endif %}
+  }
+  {% endfor %}
+  group {
+{% for node in network_nodes %}
+ {% if network_nodes[node].networks is defined %}
+   {% for network in network_nodes[node].networks %}
+     {% set iface = network_nodes[node].networks[network] %}
+     {# if a dns attribute is used take this as hostname #}
+     {# without trailing dot the dns_domain will still be appended (but not the vlan) #}
+     {% if iface.dns is defined %}
+       {% if iface.dns.endswith('.') %}
+         {% set dns_name = iface.dns %}
+       {% else %}
+         {% set dns_name = iface.dns + '.' + dns_domain + '.' %}
+       {% endif %}
+     {# with a vlan the hostname is name.vlan.dns_domain #}
+     {% elif iface.vlan is defined %}
+       {% set dns_name = node + '.' + iface.vlan + '.' + dns_domain %}
+     {# without it is name.dns_domain #}
+     {% else %}
+       {% set dns_name = node + '.' + dns_domain %}
+     {% endif %}
+     {# empty vlan equals 'default', which we need here for checking if #}
+     {# we're in the right configuration section #}
+     {% if iface.vlan is defined %}
+       {% set dns_vlan = iface.vlan %}
+     {% else %}
+       {% set dns_vlan = "default" %}
+     {% endif %}
+     {% if vlan == dns_vlan and iface.hwaddr is defined %}
+    host {{dns_name}}{
+          hardware ethernet {{iface.hwaddr}};
+          fixed-address {{iface.ipv4 | ipaddr('address')}};
+    }
+     {% endif %}
+   {% endfor %}
+ {% endif %}
+{% endfor %}
+  }
+}
+{% else %}
+# skipping undefined vlan {{vlan}}
+{% endif %}
+{% endfor %}
