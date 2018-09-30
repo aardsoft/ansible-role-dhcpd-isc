@@ -67,7 +67,7 @@ shared-network {{vlan}} {
        {% set dns_vlan = "default" %}
      {% endif %}
      {% if vlan == dns_vlan and iface.hwaddr is defined %}
-    host {{dns_name}}{
+    host {{dns_name}}.{{network}}{
           hardware ethernet {{iface.hwaddr}};
           fixed-address {{iface.ipv4 | ipaddr('address')}};
     }
