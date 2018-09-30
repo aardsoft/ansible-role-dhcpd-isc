@@ -5,6 +5,10 @@
 #   see dhcpd.conf(5) man page
 #
 
+{% if dns_domain is undefined and dhcp_default_domain is defined %}
+{% set dns_domain = dhcp_default_domain %}
+{% endif %}
+
 {# loop over global options #}
 {% if dhcp_networks.options is defined %}
  {% for option in dhcp_networks.options %}
