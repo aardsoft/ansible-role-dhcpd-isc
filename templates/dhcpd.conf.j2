@@ -48,30 +48,43 @@ shared-network {{vlan}} {
  {% if network_nodes[node].networks is defined %}
    {% for network in network_nodes[node].networks %}
      {% set iface = network_nodes[node].networks[network] %}
+     {# default values for dns name and vlan, in case no configuration is #}
+     {# is found in the next steps.                                       #}
+     {# Empty vlan is treated as 'default'. Interfaces with an assigned   #}
+     {# vlan or built on top of vlan (like bridges) need to change this   #}
+     {# value in the next section. It is used to figure out which DHCP    #}
+     {# section is correct for placing the interface.                     #}
+     {# Due to 'interesting' scoping of jinja variables this needs to be  #}
+     {# a dict which is updated later on. 'set' variables can't be edited #}
+     {# in a different scope.                                             #}
+     {% set dns = {'name': node + '.' + dns_domain, 'vlan': "default"} %}
      {# if a dns attribute is used take this as hostname #}
      {# without trailing dot the dns_domain will still be appended (but not the vlan) #}
      {% if iface.dns is defined %}
        {% if iface.dns.endswith('.') %}
-         {% set dns_name = iface.dns %}
+         {% if dns.update({'name': iface.dns }) %}{% endif %}
        {% else %}
-         {% set dns_name = iface.dns + '.' + dns_domain + '.' %}
+         {% if dns.update({'name': iface.dns + '.' + dns_domain + '.'}) %}{% endif %}
        {% endif %}
      {# with a vlan the hostname is name.vlan.dns_domain #}
      {% elif iface.vlan is defined %}
-       {% set dns_name = node + '.' + iface.vlan + '.' + dns_domain %}
-     {# without it is name.dns_domain #}
-     {% else %}
-       {% set dns_name = node + '.' + dns_domain %}
+       {% if dns.update({'vlan': iface.vlan }) %}{% endif %}
+       {% if dns.update({'name': node + '.' + iface.vlan + '.' + dns_domain}) %}{% endif %}
+     {% elif iface.type is defined and iface.type == "bridge" %}
+       {# loop over the network configuration to find the interface under the bridge #}
+       {% for tmp_net in network_nodes[node].networks %}
+         {% set tmp_iface = network_nodes[node].networks[tmp_net] %}
+         {% if tmp_iface.bridge is defined and tmp_iface.bridge == network %}
+           {% if tmp_iface.vlan is defined %}
+             {% if dns.update({'vlan': tmp_iface.vlan}) %}{% endif %}
+             {% if dns.update({'name': node + '.' + tmp_iface.vlan + '.' + dns_domain}) %}{% endif %}
+             {# TODO: import loop controls to break out of for #}
+           {% endif %}
+         {% endif %}
+       {% endfor %}
      {% endif %}
-     {# empty vlan equals 'default', which we need here for checking if #}
-     {# we're in the right configuration section #}
-     {% if iface.vlan is defined %}
-       {% set dns_vlan = iface.vlan %}
-     {% else %}
-       {% set dns_vlan = "default" %}
-     {% endif %}
-     {% if vlan == dns_vlan and iface.hwaddr is defined %}
-    host {{dns_name}}.{{network}}{
+     {% if vlan == dns.vlan and iface.hwaddr is defined %}
+    host {{dns.name}}.{{network}}{
           hardware ethernet {{iface.hwaddr}};
           fixed-address {{iface.ipv4 | ipaddr('address')}};
     }
