@@ -84,7 +84,12 @@ shared-network {{vlan}} {
        {% endfor %}
      {% endif %}
      {% if vlan == dns.vlan and iface.hwaddr is defined %}
+       {% if dns.name.endswith('.') %}
+       {# double dots are a syntax error in dhcpd configuration #}
+    host {{dns.name}}{{network}}{
+       {% else %}
     host {{dns.name}}.{{network}}{
+       {% endif %}
           hardware ethernet {{iface.hwaddr}};
           fixed-address {{iface.ipv4 | ipaddr('address')}};
     }
