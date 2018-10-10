@@ -58,16 +58,11 @@ shared-network {{vlan}} {
      {# a dict which is updated later on. 'set' variables can't be edited #}
      {# in a different scope.                                             #}
      {% set dns = {'name': node + '.' + dns_domain, 'vlan': "default"} %}
-     {# if a dns attribute is used take this as hostname #}
-     {# without trailing dot the dns_domain will still be appended (but not the vlan) #}
-     {% if iface.dns is defined %}
-       {% if iface.dns.endswith('.') %}
-         {% if dns.update({'name': iface.dns }) %}{% endif %}
-       {% else %}
-         {% if dns.update({'name': iface.dns + '.' + dns_domain + '.'}) %}{% endif %}
-       {% endif %}
-     {# with a vlan the hostname is name.vlan.dns_domain #}
-     {% elif iface.vlan is defined %}
+     {# figure out if the interface directly or indirectly belongs to a VLan #}
+     {# this is required to put the interface configuration into the correct #}
+     {# configuration section                                                #}
+     {% if iface.vlan is defined %}
+       {# with a vlan the hostname is name.vlan.dns_domain #}
        {% if dns.update({'vlan': iface.vlan }) %}{% endif %}
        {% if dns.update({'name': node + '.' + iface.vlan + '.' + dns_domain}) %}{% endif %}
      {% elif iface.type is defined and iface.type == "bridge" %}
@@ -82,6 +77,33 @@ shared-network {{vlan}} {
            {% endif %}
          {% endif %}
        {% endfor %}
+     {% elif network_nodes[node].type is defined and network_nodes[node].type == "lxc" and network_nodes[node].networks[network].link is defined %}
+       {# virtual nodes are interesting, as first the network devices on the #}
+       {# physical host need to be looked up, followed by the same discovery #}
+       {# dance as above with the bridge/...                                 #}
+       {% set tmp_node = network_nodes[node].machine %}
+       {% set tmp_link = network_nodes[node].networks[network].link %}
+       {# loop over the network configuration to find the interface under the bridge #}
+       {% for tmp_net in network_nodes[tmp_node].networks %}
+         {% set tmp_iface = network_nodes[tmp_node].networks[tmp_net] %}
+         {% if tmp_iface.bridge is defined and tmp_iface.bridge == tmp_link %}
+           {% if tmp_iface.vlan is defined %}
+             {% if dns.update({'vlan': tmp_iface.vlan}) %}{% endif %}
+             {# as it's just for checking the vlan dns name update is not needed here #}
+             {# TODO: import loop controls to break out of for #}
+           {% endif %}
+         {% endif %}
+       {% endfor %}
+     {% endif %}
+     {# if a dns attribute is used take this as hostname, overriding DNS   #}
+     {# names calculated earlier. Without trailing dot the dns_domain will #}
+     {# still be appended (but not the vlan)                               #}
+     {% if iface.dns is defined %}
+       {% if iface.dns.endswith('.') %}
+         {% if dns.update({'name': iface.dns }) %}{% endif %}
+       {% else %}
+         {% if dns.update({'name': iface.dns + '.' + dns_domain + '.'}) %}{% endif %}
+       {% endif %}
      {% endif %}
      {% if vlan == dns.vlan and iface.hwaddr is defined %}
        {% if dns.name.endswith('.') %}
