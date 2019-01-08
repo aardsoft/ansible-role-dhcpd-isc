@@ -35,7 +35,15 @@ option {{optionspace}}.{{option}};
  {% endfor %}
 {% endif %}
 
+{# also todo: add dynamic ranges #}
+
 {% for vlan in vlans %}
+{# vlan_data is used to store network address and mask of each subnet, to be #}
+{# cleared in each loop. This way we can make sure configuration shows up in #}
+{# the correct VLan _and_ the correct subnet. This finally filters some IP   #}
+{# addresses on public interfaces we don't really want, and as bonus adds    #}
+{# proper support for multiple subnets in a VLan                             #}
+{% set vlan_data = {} %}
 {% if dhcp_networks[vlan] is defined %}
 shared-network {{vlan}} {
   {# loop over shared-network specific options #}
@@ -46,7 +54,24 @@ shared-network {{vlan}} {
   {% endif %}
   {# loop over the subnet definitions #}
   {% for subnet in dhcp_networks[vlan].subnets %}
+    {% if dhcp_networks[vlan].subnets[subnet].netmask is defined %}
+      {# doing this inline throws very ugly templating errors - so it's easier #}
+      {# to debug to not catch this error, and figure out later why dhcpd is   #}
+      {# no longer starting                                                    #}
+      {% set nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
+      {% set network = nw_with_mask | ipaddr('network') %}
+      {% set netmask = nw_with_mask | ipaddr('netmask') %}
+      {% if vlan_data.update({network: netmask}) %}{% endif %}
   subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
+    {% else %}
+    {# this is not ideal - if the subnet is defined without mask this will #}
+    {# generate an empty subnet declaration, breaking dhcp on restart.     #}
+    {# Unfortunately there's no built-in way to throw errors from jinja    #}
+      {% set network = subnet | ipaddr('network') %}
+      {% set netmask = subnet | ipaddr('netmask') %}
+      {% if vlan_data.update({network: netmask}) %}{% endif %}
+  subnet {{subnet | ipaddr('network')}} netmask {{subnet | ipaddr('netmask')}} {
+    {% endif %}
     {% if vlan == 'default' %}
     option domain-name "{{dns_domain}}";
     option domain-search "{{dns_domain}}", "{{vlan}}.{{dns_domain}}";
@@ -62,6 +87,7 @@ shared-network {{vlan}} {
     {% endif %}
   }
   {% endfor %}
+  # vlan_data: {{ vlan_data }}
   group {
 {% for node in network_nodes %}
  {% if network_nodes[node].networks is defined %}
@@ -124,17 +150,31 @@ shared-network {{vlan}} {
          {% if dns.update({'name': iface.dns + '.' + dns_domain + '.'}) %}{% endif %}
        {% endif %}
      {% endif %}
+     {# loop over the vlans subnets to make sure only entries with IPs matching #}
+     {# the subnet show up here                                                 #}
+     {% for data in vlan_data %}
      {% if vlan == dns.vlan and iface.hwaddr is defined %}
-       {% if dns.name.endswith('.') %}
-       {# double dots are a syntax error in dhcpd configuration #}
+       {% set iface_address = iface.ipv4 | ipaddr('address') %}
+       {% set iface_address_with_netmask = iface_address + "/" + vlan_data[data] %}
+       {% set iface_network =  iface_address_with_netmask | ipaddr('network') %}
+       {% if data == iface_network %}
+         {% if dns.name.endswith('.') %}
+         {# double dots are a syntax error in dhcpd configuration #}
     host {{dns.name}}{{network}}{
-       {% else %}
+         {% else %}
     host {{dns.name}}.{{network}}{
-       {% endif %}
+         {% endif %}
           hardware ethernet {{iface.hwaddr}};
-          fixed-address {{iface.ipv4 | ipaddr('address')}};
+          fixed-address {{iface_address}};
+         {% if iface.dhcp_options is defined %}
+           {% for option in iface.dhcp_options %}
+          {{option}};
+           {% endfor %}
+         {% endif %}
     }
+       {% endif %}
      {% endif %}
+     {% endfor %}
    {% endfor %}
  {% endif %}
 {% endfor %}
