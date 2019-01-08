@@ -9,9 +9,6 @@
 {% set dns_domain = dhcp_default_domain %}
 {% endif %}
 
-{# loop over global options #}
-{% if dhcp_networks.options is defined %}
- {% for option in dhcp_networks.options %}
 {# Create an option space, and create options prefixed with the option #}
 {# space name (vendor name). A configuration block may look like this: #}
 {#                                                                     #}
@@ -29,6 +26,11 @@ option {{optionspace}}.{{option}};
   {% endfor %}
   {% endfor %}
 {% endif %}
+
+{# loop over global options from `dhcp_options`. Those are not magically #}
+{# prefixed with 'options' to allow arbitrary configuration directives.  #}
+{% if dhcp_options is defined %}
+ {% for option in dhcp_options %}
 {{option}};
  {% endfor %}
 {% endif %}
