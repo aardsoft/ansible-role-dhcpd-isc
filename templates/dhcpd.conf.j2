@@ -12,6 +12,23 @@
 {# loop over global options #}
 {% if dhcp_networks.options is defined %}
  {% for option in dhcp_networks.options %}
+{# Create an option space, and create options prefixed with the option #}
+{# space name (vendor name). A configuration block may look like this: #}
+{#                                                                     #}
+{# dhcp_optionspaces:                                                  #}
+{#   SUNW:                                                             #}
+{#     options:                                                        #}
+{#       - "root-mount-options code 1 = text"                          #}
+{#       - "root-server-ip-address code 2 = ip-address"                #}
+{#                                                                     #}
+{% if dhcp_optionspaces is defined %}
+  {% for optionspace in dhcp_optionspaces %}
+option space {{ optionspace }};
+  {% for option in dhcp_optionspaces[optionspace].options %}
+option {{optionspace}}.{{option}};
+  {% endfor %}
+  {% endfor %}
+{% endif %}
 {{option}};
  {% endfor %}
 {% endif %}
