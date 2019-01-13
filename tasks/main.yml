@@ -1,20 +1,13 @@
-- name: Install dhcpd (SuSE)
-  zypper:
-    name: "dhcp-server"
-    state: present
+- set_fact:
+    role_packages:
+      - dhcp-server
+
   when: ansible_os_family == "Suse"
 
-- name: Install dhcpd (RedHat/dnf)
-  dnf:
-    name: "dhcp-server"
-    state: present
-  when: ansible_os_family == "RedHat" and ansible_pkg_mgr == "dnf"
 
-- name: Install dhcpd (RedHat/yum)
-  yum:
-    name: "dhcp-server"
-    state: present
-  when: ansible_os_family == "RedHat" and ansible_pkg_mgr == "yum"
+- include_role:
+    name: basic-host
+    tasks_from: install_packages
 
 - name: update dhcpd configuration
   template:
