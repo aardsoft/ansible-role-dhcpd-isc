@@ -2,8 +2,45 @@
     role_packages:
       - dhcp-server
 
+# installing grub2-efi on a BIOS boot machine will break things, but
+# the assumption is all of those are dead nowadays.
+- set_fact:
+    dhcp_boot_packages:
+      - syslinux
+      - tftp-server
+      - shim
+      - grub2-efi
+  when: ansible_os_family == "RedHat"
+
+- set_fact:
+    dhcp_boot_packages:
+      - syslinux
+      - tftpboot-installation-common
+      - shim
+      - grub2-x86_64-efi
+    tftpboot_grub_cfg_directory: grub
+    tftpboot_grub_source: /usr/lib/grub2/x86_64-efi/grub.efi
+    tftpboot_shim_source: /usr/lib64/efi/shim.efi
+    tftpboot_directory: /srv/tftpboot
   when: ansible_os_family == "Suse"
 
+- set_fact:
+    tftpboot_grub_cfg_directory: EFI/fedora
+    tftpboot_grub_source: /boot/efi/EFI/fedora/grubx64.efi
+    tftpboot_shim_source: /boot/efi/EFI/fedora/shim.efi
+    tftpboot_directory: /var/lib/tftpboot
+  when: ansible_distribution == "Fedora"
+
+- set_fact:
+    tftpboot_grub_cfg_directory: EFI/centos
+    tftpboot_grub_source: /boot/efi/EFI/centos/grubx64.efi
+    tftpboot_shim_source: /boot/efi/EFI/centos/shim.efi
+    tftpboot_directory: /var/lib/tftpboot
+  when: ansible_distribution == "CentOS"
+
+- set_fact:
+    role_packages: "{{ role_packages + dhcp_boot_packages }}"
+  when: dhcp_boot_packages is defined and dhcp_boot == "yes"
 
 - include_role:
     name: basic-host
@@ -18,6 +55,37 @@
     mode: 0644
   notify:
     - restart dhcpd
+
+- name: copy EFI shim
+  copy:
+    src: "{{tftpboot_shim_source}}"
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/shim.efi"
+    remote_src: yes
+    mode: 0644
+  when: dhcp_boot == "yes"
+
+- name: copy EFI bootloader
+  copy:
+    src: "{{tftpboot_grub_source}}"
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/grubx64.efi"
+    remote_src: yes
+    mode: 0644
+  when: dhcp_boot == "yes"
+
+- name: create bootloader config directory
+  file:
+    path: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory }}"
+    state: directory
+    mode: 0755
+  when: dhcp_boot == "yes"
+
+# the grub-netboot.cfg needs to come from inside the playbook
+- name: copy bootloader config
+  copy:
+    src: grub-netboot.cfg
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory}}/grub.cfg"
+    mode: 0644
+  when: dhcp_boot == "yes"
 
 - name: configure firewall
   firewalld:
