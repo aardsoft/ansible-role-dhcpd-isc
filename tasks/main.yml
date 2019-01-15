@@ -18,25 +18,7 @@
       - tftpboot-installation-common
       - shim
       - grub2-x86_64-efi
-    tftpboot_grub_cfg_directory: grub
-    tftpboot_grub_source: /usr/lib/grub2/x86_64-efi/grub.efi
-    tftpboot_shim_source: /usr/lib64/efi/shim.efi
-    tftpboot_directory: /srv/tftpboot
   when: ansible_os_family == "Suse"
-
-- set_fact:
-    tftpboot_grub_cfg_directory: EFI/fedora
-    tftpboot_grub_source: /boot/efi/EFI/fedora/grubx64.efi
-    tftpboot_shim_source: /boot/efi/EFI/fedora/shim.efi
-    tftpboot_directory: /var/lib/tftpboot
-  when: ansible_distribution == "Fedora"
-
-- set_fact:
-    tftpboot_grub_cfg_directory: EFI/centos
-    tftpboot_grub_source: /boot/efi/EFI/centos/grubx64.efi
-    tftpboot_shim_source: /boot/efi/EFI/centos/shim.efi
-    tftpboot_directory: /var/lib/tftpboot
-  when: ansible_distribution == "CentOS"
 
 - set_fact:
     role_packages: "{{ role_packages + dhcp_boot_packages }}"
@@ -56,23 +38,35 @@
   notify:
     - restart dhcpd
 
-- name: copy EFI shim
+- include_tasks: dhcp_shim_config.yml
+
+- set_fact:
+    tftpboot_shim_source: "{{ tftpboot_custom_pxe_shim }}"
+    tftpboot_remote_shim: no
+  when: tftpboot_custom_pxe_shim is defined
+
+- set_fact:
+    tftpboot_grub_source: "{{ tftpboot_custom_pxe_grub }}"
+    tftpboot_remote_grub: no
+  when: tftpboot_custom_pxe_grub is defined
+
+- name: copy EFI shim (PXE)
   copy:
     src: "{{tftpboot_shim_source}}"
-    dest: "{{ tftpboot_directory | default('/tftpboot') }}/shim.efi"
-    remote_src: yes
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
+    remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
   when: dhcp_boot == "yes"
 
-- name: copy EFI bootloader
+- name: copy EFI bootloader (PXE)
   copy:
     src: "{{tftpboot_grub_source}}"
-    dest: "{{ tftpboot_directory | default('/tftpboot') }}/grubx64.efi"
-    remote_src: yes
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
+    remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
   when: dhcp_boot == "yes"
 
-- name: create bootloader config directory
+- name: create bootloader config directory (PXE)
   file:
     path: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory }}"
     state: directory
@@ -80,12 +74,49 @@
   when: dhcp_boot == "yes"
 
 # the grub-netboot.cfg needs to come from inside the playbook
-- name: copy bootloader config
-  copy:
-    src: grub-netboot.cfg
+- name: copy bootloader config (PXE)
+  vars:
+    uefi_http_prefix: ""
+  template:
+    src: grub-netboot.cfg.j2
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory}}/grub.cfg"
     mode: 0644
   when: dhcp_boot == "yes"
+
+- include_tasks: dhcp_shim_config.yml
+
+- set_fact:
+    tftpboot_shim_source: "{{ tftpboot_custom_http_shim }}"
+    tftpboot_remote_shim: no
+  when: tftpboot_custom_http_shim is defined
+
+- set_fact:
+    tftpboot_grub_source: "{{ tftpboot_custom_http_grub }}"
+    tftpboot_remote_grub: no
+  when: tftpboot_custom_http_grub is defined
+
+- name: copy EFI shim (HTTP)
+  copy:
+    src: "{{tftpboot_shim_source}}"
+    dest: "{{ uefi_http_boot_directory }}/"
+    remote_src: "{{ tftpboot_remote_shim | default(true) }}"
+    mode: 0644
+  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+
+- name: copy EFI bootloader (HTTP)
+  copy:
+    src: "{{tftpboot_grub_source}}"
+    dest: "{{ uefi_http_boot_directory }}/"
+    remote_src: "{{ tftpboot_remote_grub | default(true) }}"
+    mode: 0644
+  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+
+- name: copy bootloader config (HTTP)
+  template:
+    src: grub-netboot.cfg.j2
+    dest: "{{ uefi_http_boot_directory }}/grub.cfg"
+    mode: 0644
+  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
 - name: configure firewall
   firewalld:

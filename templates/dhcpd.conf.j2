@@ -80,12 +80,36 @@ shared-network {{vlan}} {
     option domain-search "{{vlan}}.{{dns_domain}}", "{{dns_domain}}";
     {% endif %}
 
+    {% if dhcp_networks[vlan].subnets[subnet].boot_options is defined %}
+      {% for boot_option in dhcp_networks[vlan].subnets[subnet].boot_options %}
+        {# TODO: add arch_conditional subkeys to build conditional boot structure #}
+        {% if boot_option == "pxe" %}
+    class "pxeclients" {
+      match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
+        {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.pxe %}
+      {{option}};
+        {% endfor %}
+    } # end pxe class
+        {% elif boot_option == "http" %}
+    class "httpclients" {
+      match if substring (option vendor-class-identifier, 0, 10) = "HTTPClient";
+      option vendor-class-identifier "HTTPClient";
+        {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.http %}
+      {{option}};
+        {% endfor %}
+    } # end http class
+        {% else %}
+  # unknown boot category: {{ boot_option }}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+
     {% if dhcp_networks[vlan].subnets[subnet].options is defined %}
       {% for option in dhcp_networks[vlan].subnets[subnet].options %}
     {{option}};
       {% endfor %}
     {% endif %}
-  }
+  } # end of subnet
   {% endfor %}
   # vlan_data: {{ vlan_data }}
   group {
@@ -171,14 +195,14 @@ shared-network {{vlan}} {
           {{option}};
            {% endfor %}
          {% endif %}
-    }
+    } # end of host
        {% endif %}
      {% endif %}
      {% endfor %}
    {% endfor %}
  {% endif %}
 {% endfor %}
-  }
+  } # end of shared-network
 }
 {% else %}
 # skipping undefined vlan {{vlan}}

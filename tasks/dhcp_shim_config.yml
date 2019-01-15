@@ -1,0 +1,20 @@
+- set_fact:
+    tftpboot_grub_cfg_directory: grub
+    tftpboot_grub_source: /usr/lib/grub2/x86_64-efi/grub.efi
+    tftpboot_shim_source: /usr/lib64/efi/shim.efi
+    tftpboot_directory: /srv/tftpboot
+  when: ansible_os_family == "Suse"
+
+- set_fact:
+    tftpboot_grub_cfg_directory: EFI/fedora
+    tftpboot_grub_source: /boot/efi/EFI/fedora/grubx64.efi
+    tftpboot_shim_source: /boot/efi/EFI/fedora/shim.efi
+    tftpboot_directory: /var/lib/tftpboot
+  when: ansible_distribution == "Fedora"
+
+- set_fact:
+    tftpboot_grub_cfg_directory: EFI/centos
+    tftpboot_grub_source: /boot/efi/EFI/centos/grubx64.efi
+    tftpboot_shim_source: /boot/efi/EFI/centos/shim.efi
+    tftpboot_directory: /var/lib/tftpboot
+  when: ansible_distribution == "CentOS"
