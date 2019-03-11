@@ -9,6 +9,10 @@
 {% set dns_domain = dhcp_default_domain %}
 {% endif %}
 
+if known {
+    log (info, concat ("HOSTNAME: ", host-decl-name, " on ",binary-to-ascii (10, 8, ".", leased-address)," at ", binary-to-ascii (16, 8, ":", substring (hardware, 1, 6))));
+}
+
 {# Create an option space, and create options prefixed with the option #}
 {# space name (vendor name). A configuration block may look like this: #}
 {#                                                                     #}
