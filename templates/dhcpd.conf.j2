@@ -5,6 +5,8 @@
 #   see dhcpd.conf(5) man page
 #
 
+{{dhcp_authoritative_flag|default('authoritative')}};
+
 {% if dns_domain is undefined and dhcp_default_domain is defined %}
 {% set dns_domain = dhcp_default_domain %}
 {% endif %}
