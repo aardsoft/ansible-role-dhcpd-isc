@@ -13,6 +13,26 @@ if known {
     log (info, concat ("HOSTNAME: ", host-decl-name, " on ",binary-to-ascii (10, 8, ".", leased-address)," at ", binary-to-ascii (16, 8, ":", substring (hardware, 1, 6))));
 }
 
+# DHCP classes are global, so only basic settings are possible here.
+# Until it's clear how matching in shared network sections is possible
+# only one global PXE/HTTP filename is supported, and PXE and HTTP flags
+# must not override each other. (pool is theoretically capable of doing the
+# matching, but not really an option as it requires range specifications)
+{% if dhcp_pxe_filename is defined %}
+class "pxeclients" {
+    match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
+    filename "{{dhcp_pxe_filename}}";
+}
+{% endif %}
+
+{% if dhcp_pxe_filename is defined %}
+class "httpclients" {
+    match if substring (option vendor-class-identifier, 0, 10) = "HTTPClient";
+    filename "{{dhcp_http_filename}}";
+    option vendor-class-identifier "HTTPClient";
+}
+{% endif %}
+
 {# Create an option space, and create options prefixed with the option #}
 {# space name (vendor name). A configuration block may look like this: #}
 {#                                                                     #}
@@ -65,6 +85,8 @@ shared-network {{vlan}} {
       {% set nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
       {% set network = nw_with_mask | ipaddr('network') %}
       {% set netmask = nw_with_mask | ipaddr('netmask') %}
+      {% set first_ip = nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
+      {% set last_ip = nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
       {% if vlan_data.update({network: netmask}) %}{% endif %}
   subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
     {% else %}
@@ -73,35 +95,34 @@ shared-network {{vlan}} {
     {# Unfortunately there's no built-in way to throw errors from jinja    #}
       {% set network = subnet | ipaddr('network') %}
       {% set netmask = subnet | ipaddr('netmask') %}
+      {% set first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
+      {% set last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
       {% if vlan_data.update({network: netmask}) %}{% endif %}
   subnet {{subnet | ipaddr('network')}} netmask {{subnet | ipaddr('netmask')}} {
     {% endif %}
     {% if vlan == 'default' %}
-    option domain-name "{{dns_domain}}";
-    option domain-search "{{dns_domain}}", "{{vlan}}.{{dns_domain}}";
+    {% set dhcp_domain_name = '"' + dns_domain + '"' %}
+    {% set dhcp_domain_search = '"' + dns_domain + '", "' + vlan + "." + dns_domain + '"' %}
     {% else %}
-    option domain-name "{{vlan}}.{{dns_domain}}";
-    option domain-search "{{vlan}}.{{dns_domain}}", "{{dns_domain}}";
+    {% set dhcp_domain_name =  '"' + vlan + "." + dns_domain + '"' %}
+    {% set dhcp_domain_search = '"' + vlan + "." + dns_domain + '", "' + dns_domain + '"' %}
     {% endif %}
+    option domain-name {{ dhcp_domain_name }};
+    option domain-search {{ dhcp_domain_search }};
 
     {% if dhcp_networks[vlan].subnets[subnet].boot_options is defined %}
       {% for boot_option in dhcp_networks[vlan].subnets[subnet].boot_options %}
         {# TODO: add arch_conditional subkeys to build conditional boot structure #}
         {% if boot_option == "pxe" %}
-    class "pxeclients" {
-      match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
-        {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.pxe %}
+        # PXE specific flags
+          {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.pxe %}
       {{option}};
-        {% endfor %}
-    } # end pxe class
+          {% endfor %}
         {% elif boot_option == "http" %}
-    class "httpclients" {
-      match if substring (option vendor-class-identifier, 0, 10) = "HTTPClient";
-      option vendor-class-identifier "HTTPClient";
-        {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.http %}
+        # HTTP boot specific flags
+          {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.http %}
       {{option}};
-        {% endfor %}
-    } # end http class
+          {% endfor %}
         {% else %}
   # unknown boot category: {{ boot_option }}
         {% endif %}
@@ -181,7 +202,7 @@ shared-network {{vlan}} {
      {# loop over the vlans subnets to make sure only entries with IPs matching #}
      {# the subnet show up here                                                 #}
      {% for data in vlan_data %}
-     {% if vlan == dns.vlan and iface.hwaddr is defined %}
+     {% if vlan == dns.vlan and iface.hwaddr is defined and iface.ipv4 is defined %}
        {% set iface_address = iface.ipv4 | ipaddr('address') %}
        {% set iface_address_with_netmask = iface_address + "/" + vlan_data[data] %}
        {% set iface_network =  iface_address_with_netmask | ipaddr('network') %}
