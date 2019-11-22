@@ -38,6 +38,17 @@
   notify:
     - restart dhcpd
 
+- name: add dhcpd sysconfig file
+  template:
+    src: dhcpd-sysconfig.j2
+    dest: /etc/sysconfig/dhcpd
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart dhcpd
+  when: ansible_os_family == "Suse"
+
 - include_tasks: dhcp_shim_config.yml
 
 - set_fact:
