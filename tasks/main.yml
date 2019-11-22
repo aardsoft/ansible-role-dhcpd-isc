@@ -118,6 +118,37 @@
     mode: 0644
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
+- name: copy bootleader files
+  include: copy_bootloader_files.yml
+  when: >
+    dhcp_boot == "yes" and
+    netboot is defined and netboot.os is defined
+  with_dict: "{{netboot.os}}"
+
+- name: configure firewall for dhcp
+  firewalld:
+    service: dhcp
+    permanent: true
+    state: enabled
+    immediate: true
+    zone: "{{item}}"
+  with_items: "{{dhcp_firewall_zones|default([])}}"
+  when: >
+    (firewalld_available is defined and
+    firewalld_available == True)
+
+- name: configure firewall for tftp
+  firewalld:
+    service: tftp
+    permanent: true
+    state: enabled
+    immediate: true
+    zone: "{{item}}"
+  with_items: "{{netboot.firewall_zones|default([])}}"
+  when: >
+    (firewalld_available is defined and
+    firewalld_available == True)
+
 - name: configure firewall
   firewalld:
     service: dhcp

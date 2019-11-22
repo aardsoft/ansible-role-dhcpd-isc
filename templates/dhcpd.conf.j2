@@ -20,17 +20,17 @@ if known {
 # only one global PXE/HTTP filename is supported, and PXE and HTTP flags
 # must not override each other. (pool is theoretically capable of doing the
 # matching, but not really an option as it requires range specifications)
-{% if dhcp_pxe_filename is defined %}
+{% if dhcp_pxe_filename is defined or netboot.pxe_filename is defined %}
 class "pxeclients" {
     match if substring (option vendor-class-identifier, 0, 9) = "PXEClient";
-    filename "{{dhcp_pxe_filename}}";
+    filename "{{netboot.pxe_filename|default(dhcp_pxe_filename)}}";
 }
 {% endif %}
 
-{% if dhcp_pxe_filename is defined %}
+{% if dhcp_http_filename is defined or netboot.http_filename is defined %}
 class "httpclients" {
     match if substring (option vendor-class-identifier, 0, 10) = "HTTPClient";
-    filename "{{dhcp_http_filename}}";
+    filename "{{netboot.http_filename|default(dhcp_http_filename)}}";
     option vendor-class-identifier "HTTPClient";
 }
 {% endif %}

@@ -1,0 +1,84 @@
+#jinja2: lstrip_blocks: True
+# {{ ansible_managed }}
+set default={{netboot.grub.default|default('master')}}
+set fallback={{netboot.grub.fallback|default('local')}}
+set timeout={{netboot.grub.timeout|default(10)}}
+set hidden_timeout_quiet=false
+
+{% if netboot is undefined %}
+  {% set netboot = {} %}
+{% endif %}
+serial --unit=0 --speed 115200
+terminal_input serial console
+terminal_output serial console
+
+
+{% if uefi_http_prefix is defined %}
+  {% set _http_prefix = uefi_http_prefix %}
+{% else %}
+  {% set _http_prefix = netboot.http_prefix|default("s") %}
+{% endif %}
+
+{% if netboot.nomaster is undefined or netbot.nomaster != true %}
+menuentry "master" {
+  configfile {{ _http_prefix  }}/hosts/$net_default_ip.conf
+}
+{% endif %}
+
+{% if netboot.nolocal is undefined or netboot.nolocal != true %}
+menuentry "local" {
+# booting a default entry is a mess on EFI. This is an attempt at searching
+# grub (https://bugzilla.redhat.com/show_bug.cgi?id=1367088) followed by
+# just exiting and hoping the system is not configured to retry netboots
+  unset root
+  echo Chainloading Grub2 EFI from ESP, available devices:
+  ls
+  echo -n "Probing ESP partition ... "
+  search --file --no-floppy --set=root /EFI/BOOT/BOOTX64.EFI
+  echo found $root
+  sleep 2
+  if [ -f ($root)/EFI/BOOT/grubx64.efi ]; then
+    chainloader ($root)/EFI/BOOT/grubx64.efi
+  elif [ -f ($root)/EFI/fedora/grubx64.efi ]; then
+    chainloader ($root)/EFI/fedora/grubx64.efi
+  elif [ -f ($root)/EFI/redhat/grubx64.efi ]; then
+    chainloader ($root)/EFI/redhat/grubx64.efi
+  elif [ -f ($root)/EFI/centos/grubx64.efi ]; then
+    chainloader ($root)/EFI/centos/grubx64.efi
+  elif [ -f ($root)/EFI/debian/grubx64.efi ]; then
+    chainloader ($root)/EFI/debian/grubx64.efi
+  elif [ -f ($root)/EFI/ubuntu/grubx64.efi ]; then
+    chainloader ($root)/EFI/ubuntu/grubx64.efi
+  elif [ -f ($root)/EFI/Microsoft/grubx64.efi ]; then
+    chainloader ($root)/EFI/Microsoft/grubx64.efi
+  elif [ -f ($root)/EFI/EFI/grubx64.efi ]; then
+    chainloader ($root)/EFI/EFI/grubx64.efi
+    else
+    echo File grubx64.efi not found on ESP.
+    echo Update 'pxegrub2_chainload' paths array with:
+    ls ($root)/EFI
+    echo Grub will exit in 1 minute.
+    echo press ESC to exit immediately.
+    sleep -i 60
+    exit
+  fi
+}
+{% endif %}
+
+{% for _entry_name in netboot.entries|default({}) %}
+  {% set _entry = netboot.entries[_entry_name] %}
+  {% set _os = netboot.os[_entry.os] %}
+  {% if _os.name is defined %}
+    {% set _os_name = _os.name + ": " %}
+  {% else %}
+    {% set _os_name = "" %}
+  {% endif %}
+menuentry '{{_os_name}}{{_entry.name|default(_entry_name)}}' {
+  {% if _os.linuxefi is defined %}
+    linuxefi {{ _os.efi_prefix|default(_http_prefix) }}{{_os.linuxefi.path}} {{_os.linuxefi.args|default("")}} {{_entry.args|default("")}}
+  {% endif %}
+  {% if _os.initrdefi is defined %}
+    initrdefi {{ _os.efi_prefix|default(_http_prefix) }}{{_os.initrdefi.path}}
+  {% endif %}
+}
+{% endfor %}

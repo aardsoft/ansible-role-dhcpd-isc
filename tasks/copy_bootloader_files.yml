@@ -1,0 +1,53 @@
+- set_fact:
+    _prefixes:
+      - "{{tftpboot_directory}}"
+
+- set_fact:
+    _prefixes: "{{ _prefixes  + [ uefi_http_boot_directory ] }}"
+  when: uefi_http_boot_directory is defined
+
+- name: create target directory
+  file:
+    state: directory
+    path: "{{_prefix}}/{{item.value.linuxefi.path|dirname}}"
+  loop_control:
+    loop_var: _prefix
+  with_items: "{{_prefixes}}"
+
+- name: copy kernel (http)
+  get_url:
+    url: "{{item.value.linuxefi.source}}"
+    dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+  when: item.value.linuxefi.source is defined and item.value.linuxefi.source.startswith("http")
+  with_items: "{{_prefixes}}"
+  loop_control:
+    loop_var: _prefix
+
+- name: copy kernel (local)
+  copy:
+    remote_src: yes
+    src: "{{item.value.linuxefi.source}}"
+    dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+  when: item.value.linuxefi.source is defined and not item.value.linuxefi.source.startswith("http")
+  with_items: "{{_prefixes}}"
+  loop_control:
+    loop_var: _prefix
+
+- name: copy initrd (http)
+  get_url:
+    url: "{{item.value.initrdefi.source}}"
+    dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+  when: item.value.initrdefi.source is defined and item.value.initrdefi.source.startswith("http")
+  with_items: "{{_prefixes}}"
+  loop_control:
+    loop_var: _prefix
+
+- name: copy initrd (local)
+  copy:
+    remote_src: yes
+    src: "{{item.value.initrdefi.source}}"
+    dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+  when: item.value.initrdefi.source is defined and not item.value.initrdefi.source.startswith("http")
+  with_items: "{{_prefixes}}"
+  loop_control:
+    loop_var: _prefix
