@@ -1,2 +1,5 @@
 - name: restart dhcpd
   service: name=dhcpd state=restarted
+
+- name: restart tftp
+  service: name=tftp.socket state=restarted

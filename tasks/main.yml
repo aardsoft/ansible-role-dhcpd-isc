@@ -168,5 +168,10 @@
     immediate: true
   when: ansible_os_family == "RedHat"
 
+- name: enable tftp socket
+  service: name=tftp.socket enabled=yes
+  notify: restart tftp
+  when: dhcp_boot == "yes"
+
 - name: enable dhcpd
   service: name=dhcpd enabled=yes
