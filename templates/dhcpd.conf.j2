@@ -173,7 +173,7 @@ shared-network {{vlan}} {
            {% endif %}
          {% endif %}
        {% endfor %}
-     {% elif network_nodes[node].type is defined and network_nodes[node].type == "lxc" and network_nodes[node].networks[network].link is defined %}
+     {% elif network_nodes[node].type is defined and (network_nodes[node].type == "lxc" or network_nodes[node].type == "kvm") and network_nodes[node].networks[network].link is defined %}
        {# virtual nodes are interesting, as first the network devices on the #}
        {# physical host need to be looked up, followed by the same discovery #}
        {# dance as above with the bridge/...                                 #}
