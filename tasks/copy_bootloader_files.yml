@@ -18,6 +18,8 @@
   get_url:
     url: "{{item.value.linuxefi.source}}"
     dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+    mode: 0644
+    owner: root
   when: item.value.linuxefi.source is defined and item.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -28,6 +30,8 @@
     remote_src: yes
     src: "{{item.value.linuxefi.source}}"
     dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+    mode: 0644
+    owner: root
   when: item.value.linuxefi.source is defined and not item.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -37,6 +41,8 @@
   get_url:
     url: "{{item.value.initrdefi.source}}"
     dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+    mode: 0644
+    owner: root
   when: item.value.initrdefi.source is defined and item.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -47,6 +53,8 @@
     remote_src: yes
     src: "{{item.value.initrdefi.source}}"
     dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+    mode: 0644
+    owner: root
   when: item.value.initrdefi.source is defined and not item.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:

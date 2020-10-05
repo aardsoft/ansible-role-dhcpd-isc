@@ -67,6 +67,7 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes"
 
 - name: copy EFI bootloader (PXE)
@@ -75,6 +76,7 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes"
 
 - name: create bootloader config directory (PXE)
@@ -82,6 +84,7 @@
     path: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory }}"
     state: directory
     mode: 0755
+    owner: root
   when: dhcp_boot == "yes"
 
 # the grub-netboot.cfg needs to come from inside the playbook
@@ -92,6 +95,7 @@
     src: grub-netboot.cfg.j2
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory}}/grub.cfg"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes"
 
 - include_tasks: dhcp_shim_config.yml
@@ -112,6 +116,7 @@
     dest: "{{ uefi_http_boot_directory }}/"
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
 - name: copy EFI bootloader (HTTP)
@@ -120,6 +125,7 @@
     dest: "{{ uefi_http_boot_directory }}/"
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
 - name: copy bootloader config (HTTP)
@@ -127,6 +133,7 @@
     src: grub-netboot.cfg.j2
     dest: "{{ uefi_http_boot_directory }}/grub.cfg"
     mode: 0644
+    owner: root
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
 - name: copy bootleader files
