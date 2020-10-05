@@ -11,6 +11,11 @@
 {% set dns_domain = dhcp_default_domain %}
 {% endif %}
 
+# additional info on clients connecting via relay
+if exists agent.circuit-id {
+    log ( error, concat( "Lease for ", binary-to-ascii (10, 8, ".", leased-address), " is connected to ", option agent.circuit-id));
+}
+
 if known {
     log (info, concat ("HOSTNAME: ", host-decl-name, " on ",binary-to-ascii (10, 8, ".", leased-address)," at ", binary-to-ascii (16, 8, ":", substring (hardware, 1, 6))));
 }
@@ -71,6 +76,12 @@ option {{optionspace}}.{{option}};
 {# proper support for multiple subnets in a VLan                             #}
 {% set vlan_data = {} %}
 {% if dhcp_networks[vlan] is defined %}
+ {% if dhcp_networks[vlan].relay is defined and
+       dhcp_networks[vlan].relay == true %}
+class "VLAN{{vlans[vlan]}}" {
+  match if binary-to-ascii(10,16,"",substring(option agent.circuit-id,2,2)) = "{{vlans[vlan]}}";
+}
+ {% endif %}
 shared-network {{vlan}} {
   {# loop over shared-network specific options #}
   {% if dhcp_networks[vlan].options is defined %}
