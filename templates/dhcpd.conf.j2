@@ -11,6 +11,10 @@
 {% set dns_domain = dhcp_default_domain %}
 {% endif %}
 
+{% if dns_domain is undefined and dns_default_domain is defined %}
+{% set dns_domain = dns_default_domain %}
+{% endif %}
+
 # additional info on clients connecting via relay
 if exists agent.circuit-id {
     log ( error, concat( "Lease for ", binary-to-ascii (10, 8, ".", leased-address), " is connected to ", option agent.circuit-id));
