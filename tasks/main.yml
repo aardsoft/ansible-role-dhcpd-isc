@@ -13,6 +13,10 @@
   when: ansible_os_family == "RedHat"
 
 - set_fact:
+    dhcp_boot: "no"
+  when: dhcp_boot is undefined
+
+- set_fact:
     dhcp_boot_packages:
       - syslinux
       - tftpboot-installation-common
