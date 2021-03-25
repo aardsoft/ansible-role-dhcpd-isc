@@ -194,17 +194,23 @@ shared-network {{vlan}} {
        {# dance as above with the bridge/...                                 #}
        {% set tmp_node = network_nodes[node].machine %}
        {% set tmp_link = network_nodes[node].networks[network].link %}
-       {# loop over the network configuration to find the interface under the bridge #}
-       {% for tmp_net in network_nodes[tmp_node].networks %}
-         {% set tmp_iface = network_nodes[tmp_node].networks[tmp_net] %}
-         {% if tmp_iface.bridge is defined and tmp_iface.bridge == tmp_link %}
-           {% if tmp_iface.vlan is defined %}
-             {% if dns.update({'vlan': tmp_iface.vlan}) %}{% endif %}
-             {# as it's just for checking the vlan dns name update is not needed here #}
-             {# TODO: import loop controls to break out of for #}
+       {# in rare cases the bridge itself might have a vlan defined #}
+       {% if network_nodes[tmp_node].networks[tmp_link].vlan is defined %}
+         {% if dns.update({'vlan': network_nodes[tmp_node].networks[tmp_link].vlan}) %}{% endif %}
+       {% else %}
+       {# for other cases, loop over the network configuration to find the   #}
+       {# interface under the bridge                                         #}
+         {% for tmp_net in network_nodes[tmp_node].networks %}
+           {% set tmp_iface = network_nodes[tmp_node].networks[tmp_net] %}
+           {% if tmp_iface.bridge is defined and tmp_iface.bridge == tmp_link %}
+             {% if tmp_iface.vlan is defined %}
+               {% if dns.update({'vlan': tmp_iface.vlan}) %}{% endif %}
+               {# as it's just for checking the vlan dns name update is not needed here #}
+               {# TODO: import loop controls to break out of for #}
+             {% endif %}
            {% endif %}
-         {% endif %}
-       {% endfor %}
+         {% endfor %}
+       {% endif %}
      {% endif %}
      {# if a dns attribute is used take this as hostname, overriding DNS   #}
      {# names calculated earlier. Without trailing dot the dns_domain will #}
