@@ -140,12 +140,14 @@
     owner: root
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
-- name: copy bootleader files
+- name: copy bootloader files
   include: copy_bootloader_files.yml
   when: >
     dhcp_boot == "yes" and
     netboot is defined and netboot.os is defined
   with_dict: "{{netboot.os}}"
+  loop_control:
+    loop_var: _os_entry
 
 - name: configure firewall for dhcp
   firewalld:

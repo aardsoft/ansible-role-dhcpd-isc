@@ -9,18 +9,18 @@
 - name: create target directory
   file:
     state: directory
-    path: "{{_prefix}}/{{item.value.linuxefi.path|dirname}}"
+    path: "{{_prefix}}/{{_os_entry.value.linuxefi.path|dirname}}"
   loop_control:
     loop_var: _prefix
   with_items: "{{_prefixes}}"
 
 - name: copy kernel (http)
   get_url:
-    url: "{{item.value.linuxefi.source}}"
-    dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+    url: "{{_os_entry.value.linuxefi.source}}"
+    dest: "{{_prefix}}/{{_os_entry.value.linuxefi.path}}"
     mode: 0644
     owner: root
-  when: item.value.linuxefi.source is defined and item.value.linuxefi.source.startswith("http")
+  when: _os_entry.value.linuxefi.source is defined and _os_entry.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
     loop_var: _prefix
@@ -28,22 +28,22 @@
 - name: copy kernel (local)
   copy:
     remote_src: yes
-    src: "{{item.value.linuxefi.source}}"
-    dest: "{{_prefix}}/{{item.value.linuxefi.path}}"
+    src: "{{_os_entry.value.linuxefi.source}}"
+    dest: "{{_prefix}}/{{_os_entry.value.linuxefi.path}}"
     mode: 0644
     owner: root
-  when: item.value.linuxefi.source is defined and not item.value.linuxefi.source.startswith("http")
+  when: _os_entry.value.linuxefi.source is defined and not _os_entry.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
     loop_var: _prefix
 
 - name: copy initrd (http)
   get_url:
-    url: "{{item.value.initrdefi.source}}"
-    dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+    url: "{{_os_entry.value.initrdefi.source}}"
+    dest: "{{_prefix}}/{{_os_entry.value.initrdefi.path}}"
     mode: 0644
     owner: root
-  when: item.value.initrdefi.source is defined and item.value.initrdefi.source.startswith("http")
+  when: _os_entry.value.initrdefi.source is defined and _os_entry.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
     loop_var: _prefix
@@ -51,11 +51,11 @@
 - name: copy initrd (local)
   copy:
     remote_src: yes
-    src: "{{item.value.initrdefi.source}}"
-    dest: "{{_prefix}}/{{item.value.initrdefi.path}}"
+    src: "{{_os_entry.value.initrdefi.source}}"
+    dest: "{{_prefix}}/{{_os_entry.value.initrdefi.path}}"
     mode: 0644
     owner: root
-  when: item.value.initrdefi.source is defined and not item.value.initrdefi.source.startswith("http")
+  when: _os_entry.value.initrdefi.source is defined and not _os_entry.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
     loop_var: _prefix
