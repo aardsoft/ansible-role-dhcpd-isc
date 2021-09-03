@@ -1,3 +1,8 @@
+#jinja2: lstrip_blocks: True
+# {{ ansible_managed }}
+{% if dhcpd is undefined %}
+{% set dhcpd = {} %}
+{% endif %}
 ## Path: 	Network/DHCP/DHCP server
 ## Description: DHCPv4 server settings
 ## Type:	string
@@ -12,7 +17,7 @@
 # Examples: DHCPD_INTERFACE="eth0 eth1 eth2"
 #           DHCPD_INTERFACE="ANY"
 #
-DHCPD_INTERFACE="ANY"
+DHCPD_INTERFACE="{{dhcpd.interfaces|default(['ANY'])|join(' ')}}"
 
 ## Path: 	Network/DHCP/DHCP server
 ## Description: DHCPv6 server settings
@@ -28,7 +33,7 @@ DHCPD_INTERFACE="ANY"
 # Examples: DHCPD6_INTERFACE="eth0 eth1 eth2"
 #           DHCPD6_INTERFACE="ANY"
 #
-DHCPD6_INTERFACE=""
+DHCPD6_INTERFACE="{{dhcpd.interfaces_v6|default([''])|join(' ')}}"
 
 ## Type:        list(yes,no,auto,)
 ## Default:
