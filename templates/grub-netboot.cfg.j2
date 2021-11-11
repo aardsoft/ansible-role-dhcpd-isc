@@ -65,6 +65,12 @@ menuentry "local" {
 }
 {% endif %}
 
+{% if netboot.nofwsetup is undefined or netboot.nofwsetup != true %}
+menuentry 'System setup' {
+   fwsetup
+}
+{% endif %}
+
 {% for _entry_name in netboot.entries|default({}) %}
   {% set _entry = netboot.entries[_entry_name] %}
   {% set _os = netboot.os[_entry.os] %}
