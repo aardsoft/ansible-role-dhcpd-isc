@@ -7,7 +7,15 @@ shared-network {{vlan}} {
   {% endif %}
   {# loop over the subnet definitions #}
   {% for subnet in dhcp_networks[vlan].subnets %}
-    {% include "dhcp-subnet.j2" %}
+    {% if site.name is defined and dhcp_networks[vlan].subnets[subnet].sites is defined %}
+      {% if site.name in dhcp_networks[vlan].subnets[subnet].sites %}
+        {% include "dhcp-subnet.j2" %}
+      {% else %}
+  # skipping subnet {{subnet}}, not in site {{site.name}}
+      {% endif %}
+    {% else %}
+      {% include "dhcp-subnet.j2" %}
+    {% endif %}
   {% endfor %}
 
   # vlan_data: {{ vlan_data }}
@@ -107,4 +115,5 @@ shared-network {{vlan}} {
    {% endfor %}
  {% endif %}
 {% endfor %}
-  } # end of shared-network
+  } # end of group
+} # end of shared-network

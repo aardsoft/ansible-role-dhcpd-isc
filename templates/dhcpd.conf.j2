@@ -4,6 +4,10 @@
 # DHCP Server Configuration file.
 #   see dhcpd.conf(5) man page
 #
+{% if site.name is defined %}
+# Configuration generated for {{site.name}}
+#   {{site.description|default('')}}
+{% endif %}
 
 {{dhcp_authoritative_flag|default('authoritative')}};
 
@@ -86,9 +90,28 @@ class "VLAN{{vlans[vlan]}}" {
   match if binary-to-ascii(10,16,"",substring(option agent.circuit-id,2,2)) = "{{vlans[vlan]}}";
 }
  {% endif %}
- {% include "dhcp-shared-network.j2" %}
+ {# dhcpd doesn't like empty shared network definitions - so even though the #}
+ {# subnet filtering happens later on we still need to check if there's at   #}
+ {# least one subnet in the shared network                                   #}
+ {% set net_data = {} %}
+ {% if net_data.update({'subnet_count': 0 }) %}{% endif %}
+ {% for subnet in dhcp_networks[vlan].subnets %}
+    {% if site.name is defined and dhcp_networks[vlan].subnets[subnet].sites is defined %}
+      {% if site.name in dhcp_networks[vlan].subnets[subnet].sites %}
+        {# setting this directly to int throws very weird errors #}
+        {% if net_data.update({'subnet_count': (net_data.subnet_count|int + 1)|string}) %}{% endif %}
+      {% endif %}
+    {% else %}
+      {% if net_data.update({'subnet_count': (net_data.subnet_count|int + 1)|string}) %}{% endif %}
+    {% endif %}
+ {% endfor %}
 
-}
+ {% if net_data.subnet_count|int > 0 %}
+# vlan {{vlan}} has {{net_data.subnet_count}} matching subnet(s)
+ {% include "dhcp-shared-network.j2" %}
+ {% else %}
+# skipping vlan {{vlan}}, no matching subnets
+ {% endif %}
 {% else %}
 # skipping undefined vlan {{vlan}}
 {% endif %}

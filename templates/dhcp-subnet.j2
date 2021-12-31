@@ -8,6 +8,8 @@
       {% set first_ip = nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
       {% set last_ip = nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
       {% if vlan_data.update({network: netmask}) %}{% endif %}
+  {# make sure there's a linebreak before the subnet #}
+
   subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
     {% else %}
     {# this is not ideal - if the subnet is defined without mask this will #}
@@ -18,6 +20,7 @@
       {% set first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
       {% set last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
       {% if vlan_data.update({network: netmask}) %}{% endif %}
+
   subnet {{subnet | ipaddr('network')}} netmask {{subnet | ipaddr('netmask')}} {
     {% endif %}
     {% if vlan == 'default' %}
