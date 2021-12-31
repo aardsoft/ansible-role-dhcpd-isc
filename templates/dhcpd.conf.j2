@@ -95,64 +95,9 @@ shared-network {{vlan}} {
   {% endif %}
   {# loop over the subnet definitions #}
   {% for subnet in dhcp_networks[vlan].subnets %}
-    {% if dhcp_networks[vlan].subnets[subnet].netmask is defined %}
-      {# doing this inline throws very ugly templating errors - so it's easier #}
-      {# to debug to not catch this error, and figure out later why dhcpd is   #}
-      {# no longer starting                                                    #}
-      {% set nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
-      {% set network = nw_with_mask | ipaddr('network') %}
-      {% set netmask = nw_with_mask | ipaddr('netmask') %}
-      {% set first_ip = nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set last_ip = nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
-      {% if vlan_data.update({network: netmask}) %}{% endif %}
-  subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
-    {% else %}
-    {# this is not ideal - if the subnet is defined without mask this will #}
-    {# generate an empty subnet declaration, breaking dhcp on restart.     #}
-    {# Unfortunately there's no built-in way to throw errors from jinja    #}
-      {% set network = subnet | ipaddr('network') %}
-      {% set netmask = subnet | ipaddr('netmask') %}
-      {% set first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
-      {% if vlan_data.update({network: netmask}) %}{% endif %}
-  subnet {{subnet | ipaddr('network')}} netmask {{subnet | ipaddr('netmask')}} {
-    {% endif %}
-    {% if vlan == 'default' %}
-    {% set dhcp_domain_name = '"' + dns_domain + '"' %}
-    {% set dhcp_domain_search = '"' + dns_domain + '", "' + vlan + "." + dns_domain + '"' %}
-    {% else %}
-    {% set dhcp_domain_name =  '"' + vlan + "." + dns_domain + '"' %}
-    {% set dhcp_domain_search = '"' + vlan + "." + dns_domain + '", "' + dns_domain + '"' %}
-    {% endif %}
-    option domain-name {{ dhcp_domain_name }};
-    option domain-search {{ dhcp_domain_search }};
-
-    {% if dhcp_networks[vlan].subnets[subnet].boot_options is defined %}
-      {% for boot_option in dhcp_networks[vlan].subnets[subnet].boot_options %}
-        {# TODO: add arch_conditional subkeys to build conditional boot structure #}
-        {% if boot_option == "pxe" %}
-        # PXE specific flags
-          {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.pxe %}
-      {{option}};
-          {% endfor %}
-        {% elif boot_option == "http" %}
-        # HTTP boot specific flags
-          {% for option in dhcp_networks[vlan].subnets[subnet].boot_options.http %}
-      {{option}};
-          {% endfor %}
-        {% else %}
-  # unknown boot category: {{ boot_option }}
-        {% endif %}
-      {% endfor %}
-    {% endif %}
-
-    {% if dhcp_networks[vlan].subnets[subnet].options is defined %}
-      {% for option in dhcp_networks[vlan].subnets[subnet].options %}
-    {{option}};
-      {% endfor %}
-    {% endif %}
-  } # end of subnet
+    {% include "dhcp-subnet.j2" %}
   {% endfor %}
+
   # vlan_data: {{ vlan_data }}
   group {
 {% for node in network_nodes %}
