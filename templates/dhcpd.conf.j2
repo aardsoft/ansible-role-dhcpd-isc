@@ -86,6 +86,7 @@ option {{optionspace}}.{{option}};
 {% if dhcp_networks[vlan] is defined %}
  {% if dhcp_networks[vlan].relay is defined and
        dhcp_networks[vlan].relay == true %}
+
 class "VLAN{{vlans[vlan]}}" {
   match if binary-to-ascii(10,16,"",substring(option agent.circuit-id,2,2)) = "{{vlans[vlan]}}";
 }
