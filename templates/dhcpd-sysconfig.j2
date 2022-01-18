@@ -96,7 +96,7 @@ DHCPD6_IFUP_RESTART=""
 #
 # The pid file will be in /var/lib/dhcp/var/run/dhcpd.pid.
 #
-DHCPD_RUN_CHROOTED="yes"
+DHCPD_RUN_CHROOTED="{{dhcpd.chroot|default('yes')|boolconv('yesno')}}"
 
 ## Type:	yesno
 ## Default:	yes
@@ -115,7 +115,7 @@ DHCPD_RUN_CHROOTED="yes"
 #
 # The pid file will be in /var/lib/dhcp6/var/run/dhcpd.pid.
 #
-DHCPD6_RUN_CHROOTED="yes"
+DHCPD6_RUN_CHROOTED="{{dhcpd.chroot|default('yes')|boolconv('yesno')}}"
 
 ## Type:	string
 ## Default:	"/etc/dhcpd.d"
