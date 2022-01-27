@@ -28,6 +28,18 @@
     role_packages: "{{ role_packages + dhcp_boot_packages }}"
   when: dhcp_boot_packages is defined and dhcp_boot == "yes"
 
+- set_fact:
+    _default_dhcpd_isc_conf: /etc/dhcp/dhcpd.conf
+  when: ansible_os_family != "Suse"
+
+- set_fact:
+    _default_dhcpd_isc_conf: /etc/dhcpd.conf
+  when: ansible_os_family == "Suse"
+
+- set_fact:
+    _default_dhcpd_isc_conf: "{{dhcpd_isc_conf}}"
+  when: dhcpd_isc_conf is defined
+
 - include_role:
     name: basic-host
     tasks_from: install_packages
@@ -35,7 +47,7 @@
 - name: update dhcpd configuration
   template:
     src: dhcpd.conf.j2
-    dest: "{{dhcpd_isc_conf | default('/etc/dhcp/dhcpd.conf')}}"
+    dest: "{{dhcpd.conf | default(_default_dhcpd_isc_conf)}}"
     owner: root
     group: root
     mode: 0644
