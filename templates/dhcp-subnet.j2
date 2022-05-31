@@ -2,27 +2,25 @@
       {# doing this inline throws very ugly templating errors - so it's easier #}
       {# to debug to not catch this error, and figure out later why dhcpd is   #}
       {# no longer starting                                                    #}
-      {% set nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
-      {% set network = nw_with_mask | ipaddr('network') %}
-      {% set netmask = nw_with_mask | ipaddr('netmask') %}
-      {% set first_ip = nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set last_ip = nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
-      {% if vlan_data.update({network: netmask}) %}{% endif %}
+      {% set _subnet_nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
+      {% set _subnet_network = _subnet_nw_with_mask | ipaddr('network') %}
+      {% set _subnet_netmask = _subnet_nw_with_mask | ipaddr('netmask') %}
+      {% set _subnet_first_ip = _subnet_nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
+      {% set _subnet_last_ip = _subnet_nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
+    {% else %}
+      {% set _subnet_network = subnet | ipaddr('network') %}
+      {% set _subnet_netmask = subnet | ipaddr('netmask') %}
+      {% set _subnet_first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
+      {% set _subnet_last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
+    {% endif %}
+  {% if vlan_data.update({_subnet_network: _subnet_netmask}) %}{% endif %}
   {# make sure there's a linebreak before the subnet #}
 
-  subnet {{subnet}} netmask {{dhcp_networks[vlan].subnets[subnet].netmask}} {
-    {% else %}
+  subnet {{_subnet_network}} netmask {{_subnet_netmask}} {
     {# this is not ideal - if the subnet is defined without mask this will #}
     {# generate an empty subnet declaration, breaking dhcp on restart.     #}
     {# Unfortunately there's no built-in way to throw errors from jinja    #}
-      {% set network = subnet | ipaddr('network') %}
-      {% set netmask = subnet | ipaddr('netmask') %}
-      {% set first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
-      {% if vlan_data.update({network: netmask}) %}{% endif %}
 
-  subnet {{subnet | ipaddr('network')}} netmask {{subnet | ipaddr('netmask')}} {
-    {% endif %}
     {% if vlan == 'default' %}
     {% set dhcp_domain_name = '"' + dns_domain + '"' %}
     {% set dhcp_domain_search = '"' + dns_domain + '", "' + vlan + "." + dns_domain + '"' %}
