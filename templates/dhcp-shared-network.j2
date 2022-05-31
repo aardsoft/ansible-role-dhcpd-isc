@@ -92,7 +92,8 @@ shared-network {{vlan}} {
      {% for data in vlan_data %}
      {% if vlan == dns.vlan and iface.hwaddr is defined and iface.ipv4 is defined %}
        {% set iface_address = iface.ipv4 | ipaddr('address') %}
-       {% set iface_address_with_netmask = iface_address + "/" + vlan_data[data] %}
+       {# for some weird reason jinja may decide iface_address is bool -> explicit cast#}
+       {% set iface_address_with_netmask = iface_address|string + "/" + vlan_data[data] %}
        {% set iface_network =  iface_address_with_netmask | ipaddr('network') %}
        {% if data == iface_network %}
          {% if dns.name.endswith('.') %}
