@@ -103,6 +103,9 @@ shared-network {{vlan}} {
          {% endif %}
           hardware ethernet {{iface.hwaddr}};
           fixed-address {{iface_address}};
+         {% if iface.gateway is defined %}
+          option routers {{iface.gateway}};
+         {% endif %}
          {% if iface.dhcp_options is defined %}
            {% for option in iface.dhcp_options %}
           {{option}};
