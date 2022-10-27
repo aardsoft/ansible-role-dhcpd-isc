@@ -41,7 +41,7 @@
   when: dhcpd_isc_conf is defined
 
 - include_role:
-    name: basic-host
+    name: data-utilities
     tasks_from: install_packages
 
 - name: update dhcpd configuration
