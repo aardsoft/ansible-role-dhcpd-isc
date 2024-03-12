@@ -153,7 +153,7 @@
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
 
 - name: copy bootloader files
-  include: copy_bootloader_files.yml
+  include_tasks: copy_bootloader_files.yml
   when: >
     dhcp_boot == "yes" and
     netboot is defined and netboot.os is defined

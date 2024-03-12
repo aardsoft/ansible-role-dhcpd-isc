@@ -82,7 +82,7 @@ option {{optionspace}}.{{option}};
 {# the correct VLan _and_ the correct subnet. This finally filters some IP   #}
 {# addresses on public interfaces we don't really want, and as bonus adds    #}
 {# proper support for multiple subnets in a VLan                             #}
-{% set vlan_data = {} %}
+{% set ns = namespace(vlan_data={}) %}
 {% if dhcp_networks[vlan] is defined %}
  {% if dhcp_networks[vlan].relay is defined and
        dhcp_networks[vlan].relay == true %}

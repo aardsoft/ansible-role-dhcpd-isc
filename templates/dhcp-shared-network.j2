@@ -18,7 +18,7 @@ shared-network {{vlan}} {
     {% endif %}
   {% endfor %}
 
-  # vlan_data: {{ vlan_data }}
+  # ns.vlan_data: {{ ns.vlan_data }}
   group {
 {% for node in network_nodes %}
  {% if network_nodes[node].networks is defined %}
@@ -89,11 +89,11 @@ shared-network {{vlan}} {
      {% endif %}
      {# loop over the vlans subnets to make sure only entries with IPs matching #}
      {# the subnet show up here                                                 #}
-     {% for data in vlan_data %}
+     {% for data in ns.vlan_data %}
      {% if vlan == dns.vlan and iface.hwaddr is defined and iface.ipv4 is defined %}
        {% set iface_address = iface.ipv4 | ipaddr('address') %}
        {# for some weird reason jinja may decide iface_address is bool -> explicit cast#}
-       {% set iface_address_with_netmask = iface_address|string + "/" + vlan_data[data] %}
+       {% set iface_address_with_netmask = iface_address|string + "/" + ns.vlan_data[data] %}
        {% set iface_network =  iface_address_with_netmask | ipaddr('network') %}
        {% if data == iface_network %}
          {% if dns.name.endswith('.') %}
@@ -120,4 +120,4 @@ shared-network {{vlan}} {
  {% endif %}
 {% endfor %}
   } # end of group
-} # end of shared-network
+} # end of shared-network<

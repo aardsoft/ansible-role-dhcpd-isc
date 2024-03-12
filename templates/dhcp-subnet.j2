@@ -13,7 +13,7 @@
       {% set _subnet_first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
       {% set _subnet_last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
     {% endif %}
-  {% if vlan_data.update({_subnet_network: _subnet_netmask}) %}{% endif %}
+  {% if ns.vlan_data.update({_subnet_network: _subnet_netmask}) %}{% endif %}
   {# make sure there's a linebreak before the subnet #}
 
   subnet {{_subnet_network}} netmask {{_subnet_netmask}} {
