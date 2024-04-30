@@ -3,15 +3,15 @@
       {# to debug to not catch this error, and figure out later why dhcpd is   #}
       {# no longer starting                                                    #}
       {% set _subnet_nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
-      {% set _subnet_network = _subnet_nw_with_mask | ipaddr('network') %}
-      {% set _subnet_netmask = _subnet_nw_with_mask | ipaddr('netmask') %}
-      {% set _subnet_first_ip = _subnet_nw_with_mask | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set _subnet_last_ip = _subnet_nw_with_mask | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
+      {% set _subnet_network = _subnet_nw_with_mask | ansible.utils.ipaddr('network') %}
+      {% set _subnet_netmask = _subnet_nw_with_mask | ansible.utils.ipaddr('netmask') %}
+      {% set _subnet_first_ip = _subnet_nw_with_mask | ansible.utils.ipaddr('net') | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') %}
+      {% set _subnet_last_ip = _subnet_nw_with_mask | ansible.utils.ipaddr('net') | ansible.utils.ipaddr('-1') | ansible.utils.ipaddr('address') %}
     {% else %}
-      {% set _subnet_network = subnet | ipaddr('network') %}
-      {% set _subnet_netmask = subnet | ipaddr('netmask') %}
-      {% set _subnet_first_ip = subnet | ipaddr('net') | ipaddr('1') | ipaddr('address') %}
-      {% set _subnet_last_ip = subnet | ipaddr('net') | ipaddr('-1') | ipaddr('address') %}
+      {% set _subnet_network = subnet | ansible.utils.ipaddr('network') %}
+      {% set _subnet_netmask = subnet | ansible.utils.ipaddr('netmask') %}
+      {% set _subnet_first_ip = subnet | ansible.utils.ipaddr('net') | ansible.utils.ipaddr('1') | ansible.utils.ipaddr('address') %}
+      {% set _subnet_last_ip = subnet | ansible.utils.ipaddr('net') | ansible.utils.ipaddr('-1') | ansible.utils.ipaddr('address') %}
     {% endif %}
   {% if ns.vlan_data.update({_subnet_network: _subnet_netmask}) %}{% endif %}
   {# make sure there's a linebreak before the subnet #}

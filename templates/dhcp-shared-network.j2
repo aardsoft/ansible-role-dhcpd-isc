@@ -91,10 +91,10 @@ shared-network {{vlan}} {
      {# the subnet show up here                                                 #}
      {% for data in ns.vlan_data %}
      {% if vlan == dns.vlan and iface.hwaddr is defined and iface.ipv4 is defined %}
-       {% set iface_address = iface.ipv4 | ipaddr('address') %}
+       {% set iface_address = iface.ipv4 | ansible.utils.ipaddr('address') %}
        {# for some weird reason jinja may decide iface_address is bool -> explicit cast#}
        {% set iface_address_with_netmask = iface_address|string + "/" + ns.vlan_data[data] %}
-       {% set iface_network =  iface_address_with_netmask | ipaddr('network') %}
+       {% set iface_network =  iface_address_with_netmask | ansible.utils.ipaddr('network') %}
        {% if data == iface_network %}
          {% if dns.name.endswith('.') %}
          {# double dots are a syntax error in dhcpd configuration #}
@@ -120,4 +120,4 @@ shared-network {{vlan}} {
  {% endif %}
 {% endfor %}
   } # end of group
-} # end of shared-network<
+} # end of shared-network
