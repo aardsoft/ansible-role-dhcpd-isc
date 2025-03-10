@@ -6,13 +6,41 @@
     _prefixes: "{{ _prefixes  + [ uefi_http_boot_directory ] }}"
   when: uefi_http_boot_directory is defined
 
-- name: create target directory
+- name: create default target directory
+  file:
+    state: directory
+    path: "{{_prefix}}/{{_os_entry.value.path}}"
+  when: _os_entry.value.path is defined
+  loop_control:
+    loop_var: _prefix
+  with_items: "{{_prefixes}}"
+
+- name: create linuxefi target directory
   file:
     state: directory
     path: "{{_prefix}}/{{_os_entry.value.linuxefi.path|dirname}}"
   loop_control:
     loop_var: _prefix
   with_items: "{{_prefixes}}"
+
+- name: create initrdefi target directory
+  file:
+    state: directory
+    path: "{{_prefix}}/{{_os_entry.value.initrdefi.path|dirname}}"
+  loop_control:
+    loop_var: _prefix
+  when: _os_entry.value.initrdefi.path is defined
+  with_items: "{{_prefixes}}"
+
+- name: extract archive source
+  ansible.builtin.unarchive:
+    src: "{{_os_entry.value.source}}"
+    dest: "{{_prefix}}/{{_os_entry.value.path}}"
+    remote_src: true
+  when: _os_entry.value.source is defined
+  with_items: "{{_prefixes}}"
+  loop_control:
+    loop_var: _prefix
 
 - name: copy kernel (http)
   get_url:
