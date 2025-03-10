@@ -114,6 +114,22 @@
     owner: root
   when: dhcp_boot == "yes"
 
+- name: create combustion directory (PXE)
+  file:
+    state: directory
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion"
+    mode: 0755
+    owner: root
+  when: dhcp_boot == "yes"
+
+- name: copy combustion template (PXE)
+  template:
+    src: combustion.j2
+    dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion/script"
+    mode: 0644
+    owner: root
+  when: dhcp_boot == "yes"
+
 - include_tasks: dhcp_shim_config.yml
 
 - set_fact:
@@ -148,6 +164,22 @@
   template:
     src: grub-netboot.cfg.j2
     dest: "{{ uefi_http_boot_directory }}/grub.cfg"
+    mode: 0644
+    owner: root
+  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+
+- name: create combustion directory (HTTP)
+  file:
+    state: directory
+    dest: "{{ uefi_http_boot_directory }}/combustion"
+    mode: 0755
+    owner: root
+  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+
+- name: copy combustion template (HTTP)
+  template:
+    src: combustion.j2
+    dest: "{{ uefi_http_boot_directory }}/combustion/script"
     mode: 0644
     owner: root
   when: dhcp_boot == "yes" and uefi_http_boot_directory is defined

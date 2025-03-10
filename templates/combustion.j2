@@ -1,0 +1,26 @@
+#jinja2: lstrip_blocks: True
+#!/bin/bash
+# {{ ansible_managed }}
+
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+
+cat > /root/.ssh/authorized_keys << 'EOF'
+{% if management_keys is defined %}
+  {% for file in management_keys %}
+{{lookup('file', 'authorized_keys.d/' + file)}}
+  {% endfor %}
+{% else %}
+{{lookup('file', 'authorized_keys')}}
+{% endif %}
+EOF
+chmod 600 /root/.ssh/authorized_keys
+
+# To add additional steps create templates, and list them in netboot.combustion.scriptlets
+
+{% if netboot['combustion']['scriptlets'] is defined %}
+  {% for scriptlet in netboot['combustion']['scriptlets'] %}
+# {{scriptlet}}
+{% include scriptlet %}
+  {% endfor %}
+{% endif %}
