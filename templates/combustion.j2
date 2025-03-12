@@ -1,11 +1,22 @@
 #jinja2: lstrip_blocks: True
 #!/bin/bash
+# combustion: prepare
 # {{ ansible_managed }}
 
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
+set -uxe
 
-cat > /root/.ssh/authorized_keys << 'EOF'
+# the block device of the root partition, like sda3
+rootdev=
+# the disk the root partition is on, like sda
+rootdisk=
+rootmount=
+prepare=
+
+add_root_ssh_keys(){
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+
+    cat > /root/.ssh/authorized_keys << 'EOF'
 {% if management_keys is defined %}
   {% for file in management_keys %}
 {{lookup('file', 'authorized_keys.d/' + file)}}
@@ -14,13 +25,207 @@ cat > /root/.ssh/authorized_keys << 'EOF'
 {{lookup('file', 'authorized_keys')}}
 {% endif %}
 EOF
-chmod 600 /root/.ssh/authorized_keys
+    chmod 600 /root/.ssh/authorized_keys
+}
+
+print_debug_info(){
+    mount
+    cat /proc/cmdline
+    if [ -f /etc/fstab ]; then
+        cat /etc/fstab
+    fi
+    if [ -f /sysroot/etc/fstab ]; then
+        cat /sysroot/etc/fstab
+    fi
+}
+
+# this doesn't work for device mapper disks, but we shouldn't have any of those
+# for microos install anyway
+get_root_device(){
+    rootdev=$(basename "`mount|grep /sysroot|awk '{print $1}'`")
+
+    if [ -n "$rootdev" ]; then
+        rootmount="/sysroot"
+    else
+        # probably not in sysroot
+        rootdev=$(basename "` mount | grep " / "| awk '{print $1}'`")
+        rootmount="/"
+    fi
+
+    if [ -n "$rootdev" ]; then
+        rootdisk=$(basename `readlink -f "/sys/class/block/${rootdev}/.."`)
+
+        echo "root device: ${rootdev}"
+        echo "root disk: ${rootdisk}"
+    else
+        echo "Unable to locate root device. Fix this script."
+    fi
+}
+
+# set up a mirror if the install device is nvme0n1, and nvme1n1 exists
+mirror_nvme_root(){
+    if [ "$rootdisk" = "nvme0n1" ] && [ -b /dev/nvme0n1 ] && [ -b /dev/nvme1n1 ]; then
+        sfdisk -d /dev/nvme0n1 | sfdisk /dev/nvme1n1
+        partx -u /dev/nvme1n1
+        btrfs device add -f /dev/nvme1n1p3 /
+        btrfs balance start -dconvert=raid1 -mconvert=raid1 /
+        # if var is not mounted - which it probably isn't at this stage - this would add this
+        # to the root volume, which we don't want. Just mounting it to /mnt should always work,
+        # and saves us a mount check
+        mount /dev/nvme0n1p4 /mnt
+        btrfs device add -f /dev/nvme1n1p4 /mnt
+        btrfs balance start -dconvert=raid1 -mconvert=raid1 /mnt
+        umount /mnt
+    fi
+}
+
+# kiwi images don't have a separate var partition, and don't have an option
+# to limit how much space it'll be expanded to. This means we'll have to shrink
+# the root partition, add a new one, and then resize to fill the partition.
+resize_root_device(){
+    install_disk=/dev/$rootdisk
+
+    if [ -n "$rootmount" ] && [ -n "$install_disk" ] && [ -b "$install_disk" ]; then
+        root_size=`blockdev --getsize64 /dev/$rootdev`
+        echo "Trying to resize $install_disk with current size $root_size"
+        if [ "$root_size" -lt 21474836480 ]; then
+            echo "Root is tiny for some reason, increase size"
+            echo "size=20G" | sfdisk -N 3 --force $install_disk
+        fi
+        btrfs filesystem resize 15G $rootmount
+        echo "size=20G" | sfdisk -N 3 --force $install_disk
+        partx -u $install_disk
+        btrfs filesystem resize max $rootmount
+    fi
+}
+
+add_var_partition(){
+    install_disk=/dev/$rootdisk
+
+    # probably most sensible would be snapshot and btrfs send
+    if [ -n "$install_disk" ] && [ -b "$install_disk" ]; then
+        echo ',+,0FC63DAF-8483-4772-8E79-3D69D8477DE4' | sfdisk -a $install_disk --force
+        partx -u $install_disk
+        var_part=`sfdisk -d $install_disk|tail -1| awk '{print $1}'`
+        if [ -n "$var_part" ]; then
+            mkfs.btrfs -f $var_part
+        fi
+    fi
+}
+
+# this probably only works correctly in the prepare step - the later step has subvolumes of var
+# mounted and filled, and without remounting all of those some setup data might get lost. This
+# remounting currently is not implemented.
+copy_var(){
+    install_disk=/dev/$rootdisk
+    if [ -n "$install_disk" ] && [ -b "$install_disk" ]; then
+        var_part=`sfdisk -d $install_disk|tail -1| awk '{print $1}'`
+        if [ -n "$var_part" ]; then
+            # doing this with snapshot and btrfs send/receive would be nice, but doesn't
+            # seem to work from combustion. Also only some subvolumes of var are mounted
+            # at this point, so easiest is to just mount complete var for this
+            # mount /dev/$rootdev /mnt -o defaults,subvol=@/var
+            # btrfs subvolume snapshot -r /mnt var_orig
+            # umount /mnt
+            # mount $var_part /mnt
+            # btrfs send var_orig | btrfs receive /mnt
+            # mv /mnt/var_orig /mnt/var
+            # btrfs subvolume set-default /mnt/var
+            # umount /mnt
+            mkdir /mnt/var_new /mnt/var_old
+            mount /dev/$rootdev /mnt/var_old -o defaults,subvol=@/var
+            mount $var_part /mnt/var_new
+            if [ -n "$prepare" ]; then
+                cp -a /mnt/var_old/* /mnt/var_new/
+            else
+                rsync -aAXP /mnt/var_old/ /mnt/var_new/
+            fi
+            $rootmount/bin/chcon system_u:object_r:var_t:s0 /mnt/var_new
+            umount /mnt/var_old
+            umount /mnt/var_new
+            rmdir /mnt/var_new /mnt/var_old
+            # var gets mounted in initrd, using the fstab from the original disk. In the second
+            # combustion run fstab is already mounted from the var overlay, masking it. So this
+            # either needs to run in prepend, or we'd need to do a bind mount of / to get access
+            # to the unmasked fstab, and edit it there
+            if [ -z "$prepare" ]; then
+                mount -o bind / /mnt
+                awk -i inplace '$2 != "/var"' /mnt/etc/fstab
+                echo "$(blkid -o export ${var_part} | grep ^UUID=) /var btrfs defaults,x-initrd.mount 0 0" >> /mnt/etc/fstab
+                umount /mnt
+            else
+                mount -o remount,rw /sysroot
+                btrfs property set /sysroot ro false
+                # awk in initrd doesn't have the extra libraries
+                # order in fstab matters here - the new var entry needs to be before the overlay mount
+                grep -v " /var \|overlay" /sysroot/etc/fstab > /sysroot/etc/fstab.new
+                echo "$(blkid -o export ${var_part} | grep ^UUID=) /var btrfs defaults,x-initrd.mount 0 0" >> /sysroot/etc/fstab.new
+                grep overlay /sysroot/etc/fstab >> /sysroot/etc/fstab.new
+                cp -a /sysroot/etc/fstab.new /sysroot/etc/fstab
+                btrfs property set /sysroot ro true
+                mount -o remount,ro /sysroot
+            fi
+        fi
+    fi
+}
+
+default_initrd(){
+    resize_root_device
+    add_var_partition
+    copy_var
+}
+
+default_noinitrd(){
+    add_root_ssh_keys
+}
+
+# prepare variables scriptlets can rely on
+if [ "${1-}" = "--prepare" ]; then
+    echo "Combustion is running in initrd"
+    prepare=1
+fi
+
+get_root_device
 
 # To add additional steps create templates, and list them in netboot.combustion.scriptlets
 
 {% if netboot['combustion']['scriptlets'] is defined %}
   {% for scriptlet in netboot['combustion']['scriptlets'] %}
+
 # {{scriptlet}}
 {% include scriptlet %}
+
+  {% endfor %}
+{% endif %}
+
+if [ -z "$prepare" ]; then
+    # run this only outside of the initrd
+{% if netboot['combustion']['commands_noinitrd'] is defined %}
+  {% for command in netboot['combustion']['commands_noinitrd'] %}
+
+{{command}}
+
+  {% endfor %}
+{% else %}
+    default_noinitrd
+{% endif %}
+else
+    # run this in initrd
+{% if netboot['combustion']['commands_initrd'] is defined %}
+  {% for command in netboot['combustion']['commands_initrd'] %}
+
+{{command}}
+
+  {% endfor %}
+{% else %}
+  default_initrd
+{% endif %}
+fi
+
+{% if netboot['combustion']['commands'] is defined %}
+  {% for command in netboot['combustion']['commands'] %}
+
+{{command}}
+
   {% endfor %}
 {% endif %}
