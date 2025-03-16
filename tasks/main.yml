@@ -34,7 +34,9 @@
 
 - set_fact:
     _default_dhcpd_isc_conf: /etc/dhcpd.conf
-  when: ansible_os_family == "Suse"
+  when: >
+    ansible_os_family == "Suse" or
+    ansible_os_family == "openSUSE MicroOS"
 
 - set_fact:
     _default_dhcpd_isc_conf: "{{dhcpd_isc_conf}}"
@@ -63,7 +65,9 @@
     mode: 0644
   notify:
     - restart dhcpd
-  when: ansible_os_family == "Suse"
+  when: >
+    ansible_os_family == "Suse" or
+    ansible_os_family == "openSUSE MicroOS"
 
 - include_tasks: dhcp_shim_config.yml
 

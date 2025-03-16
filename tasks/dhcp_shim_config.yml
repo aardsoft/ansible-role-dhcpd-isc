@@ -3,7 +3,9 @@
     tftpboot_grub_source: /usr/lib64/efi/grub.efi
     tftpboot_shim_source: /usr/lib64/efi/shim.efi
     tftpboot_directory: /srv/tftpboot
-  when: ansible_os_family == "Suse"
+  when: >
+    ansible_os_family == "Suse" or
+    ansible_os_family == "openSUSE MicroOS"
 
 - set_fact:
     tftpboot_grub_cfg_directory: EFI/fedora
