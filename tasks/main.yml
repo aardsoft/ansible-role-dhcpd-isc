@@ -13,7 +13,7 @@
   when: ansible_os_family == "RedHat"
 
 - set_fact:
-    dhcp_boot: "no"
+    dhcp_boot: False
   when: dhcp_boot is undefined
 
 - set_fact:
@@ -26,7 +26,7 @@
 
 - set_fact:
     role_packages: "{{ role_packages + dhcp_boot_packages }}"
-  when: dhcp_boot_packages is defined and dhcp_boot == "yes"
+  when: dhcp_boot_packages is defined and dhcp_boot == True
 
 - set_fact:
     _default_dhcpd_isc_conf: /etc/dhcp/dhcpd.conf
@@ -88,7 +88,7 @@
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - name: copy EFI bootloader (PXE)
   copy:
@@ -97,7 +97,7 @@
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - name: create bootloader config directory (PXE)
   file:
@@ -105,7 +105,7 @@
     state: directory
     mode: 0755
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 # the grub-netboot.cfg needs to come from inside the playbook
 - name: copy bootloader config (PXE)
@@ -116,7 +116,7 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory}}/grub.cfg"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - name: create combustion directory (PXE)
   file:
@@ -124,7 +124,7 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion"
     mode: 0755
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - name: copy combustion template (PXE)
   template:
@@ -132,7 +132,7 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion/script"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - include_tasks: dhcp_shim_config.yml
 
@@ -153,7 +153,7 @@
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+  when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy EFI bootloader (HTTP)
   copy:
@@ -162,7 +162,7 @@
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+  when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy bootloader config (HTTP)
   template:
@@ -170,7 +170,7 @@
     dest: "{{ uefi_http_boot_directory }}/grub.cfg"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+  when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: create combustion directory (HTTP)
   file:
@@ -178,7 +178,7 @@
     dest: "{{ uefi_http_boot_directory }}/combustion"
     mode: 0755
     owner: root
-  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+  when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy combustion template (HTTP)
   template:
@@ -186,12 +186,12 @@
     dest: "{{ uefi_http_boot_directory }}/combustion/script"
     mode: 0644
     owner: root
-  when: dhcp_boot == "yes" and uefi_http_boot_directory is defined
+  when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy bootloader files
   include_tasks: copy_bootloader_files.yml
   when: >
-    dhcp_boot == "yes" and
+    dhcp_boot == True and
     netboot is defined and netboot.os is defined
   with_dict: "{{netboot.os}}"
   loop_control:
@@ -232,7 +232,7 @@
 - name: enable tftp socket
   service: name=tftp.socket enabled=yes
   notify: restart tftp
-  when: dhcp_boot == "yes"
+  when: dhcp_boot == True
 
 - name: enable dhcpd
   service: name=dhcpd enabled=yes
