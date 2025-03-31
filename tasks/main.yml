@@ -1,6 +1,27 @@
 - set_fact:
+    _config_only: false
+
+- set_fact:
+    _config_only: true
+  when: >
+    ansible_connection == "local"
+
+- set_fact:
+    config_prefix: ""
+  when: config_prefix is undefined
+
+- set_fact:
+    dhcp_user: root
+  when: dhcp_user is undefined
+
+- set_fact:
+    dhcp_group: root
+  when: dhcp_group is undefined
+
+- set_fact:
     role_packages:
       - dhcp-server
+  when: _config_only == false
 
 # installing grub2-efi on a BIOS boot machine will break things, but
 # the assumption is all of those are dead nowadays.
@@ -10,48 +31,64 @@
       - tftp-server
       - shim
       - grub2-efi
-  when: ansible_os_family == "RedHat"
+  when: >
+    ansible_os_family == "RedHat" and
+    _config_only == false
 
 - set_fact:
     dhcp_boot: False
-  when: dhcp_boot is undefined
+  when: >
+    dhcp_boot is undefined
 
 - set_fact:
     dhcp_boot_packages:
-      - syslinux
       - tftpboot-installation-common
       - shim
       - grub2-x86_64-efi
-  when: ansible_os_family == "Suse"
+  when: >
+      (ansible_os_family == "Suse" or
+      ansible_os_family == "openSUSE MicroOS") and
+      _config_only == false
 
 - set_fact:
     role_packages: "{{ role_packages + dhcp_boot_packages }}"
-  when: dhcp_boot_packages is defined and dhcp_boot == True
+  when: >
+    dhcp_boot_packages is defined and dhcp_boot == True and
+    _config_only == false
 
 - set_fact:
-    _default_dhcpd_isc_conf: /etc/dhcp/dhcpd.conf
+    _default_dhcpd_isc_conf: "{{config_prefix}}/etc/dhcp/dhcpd.conf"
   when: ansible_os_family != "Suse"
 
 - set_fact:
-    _default_dhcpd_isc_conf: /etc/dhcpd.conf
+    _default_dhcpd_isc_conf: "{{config_prefix}}/etc/dhcpd.conf"
   when: >
     ansible_os_family == "Suse" or
     ansible_os_family == "openSUSE MicroOS"
 
 - set_fact:
-    _default_dhcpd_isc_conf: "{{dhcpd_isc_conf}}"
+    _default_dhcpd_isc_conf: "{{config_prefix}}{{dhcpd_isc_conf}}"
   when: dhcpd_isc_conf is defined
 
 - include_role:
     name: data-utilities
     tasks_from: install_packages
+  when: _config_only == false
+
+- name: create dhcpd configuration directory
+  file:
+    state: directory
+    path: "{{_default_dhcpd_isc_conf|dirname}}"
+    mode: 0755
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
 
 - name: update dhcpd configuration
   template:
     src: dhcpd.conf.j2
     dest: "{{dhcpd.conf | default(_default_dhcpd_isc_conf)}}"
-    owner: root
-    group: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
     mode: 0644
   notify:
     - restart dhcpd
@@ -59,9 +96,9 @@
 - name: add dhcpd sysconfig file
   template:
     src: dhcpd-sysconfig.j2
-    dest: /etc/sysconfig/dhcpd
-    owner: root
-    group: root
+    dest: "{{config_prefix}}/etc/sysconfig/dhcpd"
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
     mode: 0644
   notify:
     - restart dhcpd
@@ -87,7 +124,8 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 - name: copy EFI bootloader (PXE)
@@ -96,7 +134,8 @@
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/"
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 - name: create bootloader config directory (PXE)
@@ -104,7 +143,8 @@
     path: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory }}"
     state: directory
     mode: 0755
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 # the grub-netboot.cfg needs to come from inside the playbook
@@ -115,7 +155,8 @@
     src: grub-netboot.cfg.j2
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/{{ tftpboot_grub_cfg_directory}}/grub.cfg"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 - name: create combustion directory (PXE)
@@ -123,7 +164,8 @@
     state: directory
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion"
     mode: 0755
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 - name: copy combustion template (PXE)
@@ -131,7 +173,8 @@
     src: combustion.j2
     dest: "{{ tftpboot_directory | default('/tftpboot') }}/combustion/script"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True
 
 - include_tasks: dhcp_shim_config.yml
@@ -152,7 +195,8 @@
     dest: "{{ uefi_http_boot_directory }}/"
     remote_src: "{{ tftpboot_remote_shim | default(true) }}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy EFI bootloader (HTTP)
@@ -161,7 +205,8 @@
     dest: "{{ uefi_http_boot_directory }}/"
     remote_src: "{{ tftpboot_remote_grub | default(true) }}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy bootloader config (HTTP)
@@ -169,7 +214,8 @@
     src: grub-netboot.cfg.j2
     dest: "{{ uefi_http_boot_directory }}/grub.cfg"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: create combustion directory (HTTP)
@@ -177,7 +223,8 @@
     state: directory
     dest: "{{ uefi_http_boot_directory }}/combustion"
     mode: 0755
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy combustion template (HTTP)
@@ -185,7 +232,8 @@
     src: combustion.j2
     dest: "{{ uefi_http_boot_directory }}/combustion/script"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: dhcp_boot == True and uefi_http_boot_directory is defined
 
 - name: copy bootloader files
@@ -207,7 +255,8 @@
   with_items: "{{dhcp_firewall_zones|default([])}}"
   when: >
     (firewalld_available is defined and
-    firewalld_available == True)
+    firewalld_available == True) and
+    _config_only == false
 
 - name: configure firewall for tftp
   firewalld:
@@ -219,7 +268,8 @@
   with_items: "{{netboot.firewall_zones|default([])}}"
   when: >
     (firewalld_available is defined and
-    firewalld_available == True)
+    firewalld_available == True) and
+    _config_only == false
 
 - name: configure firewall
   firewalld:
@@ -227,7 +277,9 @@
     permanent: true
     state: enabled
     immediate: true
-  when: ansible_os_family == "RedHat"
+  when: >
+    ansible_os_family == "RedHat" and
+    _config_only == false
 
 - name: enable tftp socket
   service: name=tftp.socket enabled=yes
@@ -236,3 +288,4 @@
 
 - name: enable dhcpd
   service: name=dhcpd enabled=yes
+  ignore_errors: true

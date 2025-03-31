@@ -47,7 +47,8 @@
     url: "{{_os_entry.value.linuxefi.source}}"
     dest: "{{_prefix}}/{{_os_entry.value.linuxefi.path}}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: _os_entry.value.linuxefi.source is defined and _os_entry.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -59,7 +60,8 @@
     src: "{{_os_entry.value.linuxefi.source}}"
     dest: "{{_prefix}}/{{_os_entry.value.linuxefi.path}}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: _os_entry.value.linuxefi.source is defined and not _os_entry.value.linuxefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -70,7 +72,8 @@
     url: "{{_os_entry.value.initrdefi.source}}"
     dest: "{{_prefix}}/{{_os_entry.value.initrdefi.path}}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: _os_entry.value.initrdefi.source is defined and _os_entry.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
@@ -82,7 +85,8 @@
     src: "{{_os_entry.value.initrdefi.source}}"
     dest: "{{_prefix}}/{{_os_entry.value.initrdefi.path}}"
     mode: 0644
-    owner: root
+    owner: "{{dhcp_user}}"
+    group: "{{dhcp_group}}"
   when: _os_entry.value.initrdefi.source is defined and not _os_entry.value.initrdefi.source.startswith("http")
   with_items: "{{_prefixes}}"
   loop_control:
