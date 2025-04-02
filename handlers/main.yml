@@ -1,5 +1,9 @@
 - name: restart dhcpd
   service: name=dhcpd state=restarted
+  when: >
+    _config_only == false
 
 - name: restart tftp
   service: name=tftp.socket state=restarted
+  when: >
+    _config_only == false

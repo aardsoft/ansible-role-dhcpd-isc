@@ -75,7 +75,7 @@
     tasks_from: install_packages
   when: _config_only == false
 
-- name: create dhcpd configuration directory
+- name: create dhcpd configuration directory ({{_default_dhcpd_isc_conf|dirname}})
   file:
     state: directory
     path: "{{_default_dhcpd_isc_conf|dirname}}"
@@ -103,8 +103,9 @@
   notify:
     - restart dhcpd
   when: >
-    ansible_os_family == "Suse" or
-    ansible_os_family == "openSUSE MicroOS"
+    (ansible_os_family == "Suse" or
+    ansible_os_family == "openSUSE MicroOS") and
+    _config_only == false
 
 - include_tasks: dhcp_shim_config.yml
 
