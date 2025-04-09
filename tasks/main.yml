@@ -44,11 +44,26 @@
     dhcp_boot_packages:
       - tftpboot-installation-common
       - shim
-      - grub2-x86_64-efi
   when: >
       (ansible_os_family == "Suse" or
       ansible_os_family == "openSUSE MicroOS") and
       _config_only == false
+
+- set_fact:
+    dhcp_boot_packages: "{{ dhcp_boot_packages + ['grub2-x86_64-efi'] }}"
+  when: >
+      (ansible_os_family == "Suse" or
+      ansible_os_family == "openSUSE MicroOS") and
+      _config_only == false and
+      ansible_architecture == "x86_64"
+
+- set_fact:
+    dhcp_boot_packages: "{{ dhcp_boot_packages + ['grub2-arm64-efi'] }}"
+  when: >
+      (ansible_os_family == "Suse" or
+      ansible_os_family == "openSUSE MicroOS") and
+      _config_only == false and
+      ansible_architecture == "aarch64"
 
 - set_fact:
     role_packages: "{{ role_packages + dhcp_boot_packages }}"

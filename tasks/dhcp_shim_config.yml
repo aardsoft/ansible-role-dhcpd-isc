@@ -1,7 +1,7 @@
 - set_fact:
     tftpboot_grub_cfg_directory: ""
-    tftpboot_grub_source: /usr/lib64/efi/grub.efi
-    tftpboot_shim_source: /usr/lib64/efi/shim.efi
+    tftpboot_grub_source: "/usr/share/efi/{{ansible_architecture}}/grub.efi"
+    tftpboot_shim_source: "/usr/share/efi/{{ansible_architecture}}/shim.efi"
     tftpboot_directory: /srv/tftpboot
   when: >
     ansible_os_family == "Suse" or
