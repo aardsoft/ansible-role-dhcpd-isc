@@ -96,7 +96,7 @@ class "VLAN{{vlans[vlan]}}" {
  {# least one subnet in the shared network                                   #}
  {% set net_data = {} %}
  {% if net_data.update({'subnet_count': 0 }) %}{% endif %}
- {% for subnet in dhcp_networks[vlan].subnets %}
+ {% for subnet in dhcp_networks[vlan].subnets|default({}) %}
     {% if site.name is defined and dhcp_networks[vlan].subnets[subnet].sites is defined %}
       {% if site.name in dhcp_networks[vlan].subnets[subnet].sites %}
         {# setting this directly to int throws very weird errors #}
