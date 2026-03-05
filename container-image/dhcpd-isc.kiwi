@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<image schemaversion="7.5" name="dhcpd-isc">
+    <description type="system">
+        <author>Bernd Wachter</author>
+        <contact>bwachter-kiwi@aardsoft.fi</contact>
+        <specification>Leap based container for ISC DHCP</specification>
+    </description>
+    <preferences>
+        <type image="docker" derived_from="ghcr.io/aardsoft/leap-base:latest">
+          <containerconfig name="ghcr.io/aardsoft/dhcpd-isc" tag="0.1" additionalnames=":latest" user="root">
+            <subcommand execute="/usr/sbin/dhcpd">
+              <argument name="-4"/>
+              <argument name="-f"/>
+              <argument name="-cf"/>
+              <argument name="/etc/dhcpd.conf"/>
+              <argument name="-lf"/>
+              <argument name="/var/lib/dhcpd/db/dhcpd.leases"/>
+              <argument name="-user"/>
+              <argument name="dhcpd"/>
+              <argument name="-group"/>
+              <argument name="nogroup"/>
+            </subcommand>
+          </containerconfig>
+        </type>
+        <version>0.0.1</version>
+        <packagemanager>zypper</packagemanager>
+        <rpm-excludedocs>true</rpm-excludedocs>
+    </preferences>
+    <repository type="rpm-md">
+        <source path="obsrepositories:/"/>
+    </repository>
+    <packages type="image">
+      <package name="dhcp-server"/>
+      <package name="tftpboot-installation-common"/>
+      <package name="shim"/>
+    </packages>
+</image>
