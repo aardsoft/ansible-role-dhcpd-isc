@@ -9,7 +9,6 @@
       {% set _subnet_network = subnet | ansible.utils.ipaddr('network') %}
       {% set _subnet_netmask = subnet | ansible.utils.ipaddr('netmask') %}
     {% endif %}
-  {% if ns.vlan_data.update({_subnet_network: _subnet_netmask}) %}{% endif %}
   {# make sure there's a linebreak before the subnet #}
 
   subnet {{_subnet_network}} netmask {{_subnet_netmask}} {
