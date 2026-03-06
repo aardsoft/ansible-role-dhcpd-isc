@@ -15,7 +15,7 @@
               <argument name="-cf"/>
               <argument name="/etc/dhcpd.conf"/>
               <argument name="-lf"/>
-              <argument name="/var/lib/dhcpd/db/dhcpd.leases"/>
+              <argument name="/var/lib/dhcp/db/dhcpd.leases"/>
               <argument name="-user"/>
               <argument name="dhcpd"/>
               <argument name="-group"/>
