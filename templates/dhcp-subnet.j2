@@ -1,30 +1,6 @@
-    {% if dhcp_networks[vlan].subnets[subnet].netmask is defined %}
-      {# doing this inline throws very ugly templating errors - so it's easier #}
-      {# to debug to not catch this error, and figure out later why dhcpd is   #}
-      {# no longer starting                                                    #}
-      {% set _subnet_nw_with_mask = subnet + "/" + dhcp_networks[vlan].subnets[subnet].netmask %}
-      {% set _subnet_network = _subnet_nw_with_mask | ansible.utils.ipaddr('network') %}
-      {% set _subnet_netmask = _subnet_nw_with_mask | ansible.utils.ipaddr('netmask') %}
-    {% else %}
-      {% set _subnet_network = subnet | ansible.utils.ipaddr('network') %}
-      {% set _subnet_netmask = subnet | ansible.utils.ipaddr('netmask') %}
-    {% endif %}
-  {# make sure there's a linebreak before the subnet #}
-
-  subnet {{_subnet_network}} netmask {{_subnet_netmask}} {
-    {# this is not ideal - if the subnet is defined without mask this will #}
-    {# generate an empty subnet declaration, breaking dhcp on restart.     #}
-    {# Unfortunately there's no built-in way to throw errors from jinja    #}
-
-    {% if vlan == 'default' %}
-    {% set dhcp_domain_name = '"' + dns_domain + '"' %}
-    {% set dhcp_domain_search = '"' + dns_domain + '", "' + vlan + "." + dns_domain + '"' %}
-    {% else %}
-    {% set dhcp_domain_name =  '"' + vlan + "." + dns_domain + '"' %}
-    {% set dhcp_domain_search = '"' + vlan + "." + dns_domain + '", "' + dns_domain + '"' %}
-    {% endif %}
-    option domain-name {{ dhcp_domain_name }};
-    option domain-search {{ dhcp_domain_search }};
+  subnet {{dhcp_networks[vlan].subnets[subnet].subnet_network}} netmask {{dhcp_networks[vlan].subnets[subnet].subnet_netmask}} {
+    option domain-name {{dhcp_networks[vlan].dhcp_domain_name}};
+    option domain-search {{dhcp_networks[vlan].dhcp_domain_search}};
 
     {% if dhcp_networks[vlan].subnets[subnet].boot_options is defined %}
       {% for boot_option in dhcp_networks[vlan].subnets[subnet].boot_options %}
