@@ -1,0 +1,27 @@
+default_vars:
+  dns_domain: example.com
+
+networks:
+  default:
+    vlan_id: 1
+    subnets:
+      "1.2.3.0/24":
+  second:
+    vlan_id: 2
+    subnets:
+      "2.2.3.4":
+        netmask: 255.255.255.0
+
+hosts:
+  localhost:
+    type: local
+  host1:
+    type: local
+    networks:
+      if1:
+        hwaddr: 00:16:3e:81:5a:d1
+        ipv4: 1.2.3.9/24
+      if2:
+        hwaddr: 00:16:3e:81:5a:d2
+        ipv4: 2.2.3.9/24
+        vlan: second

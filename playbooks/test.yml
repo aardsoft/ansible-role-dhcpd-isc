@@ -9,6 +9,12 @@
           - "Virtualization: {{ansible_virtualization_role}}"
           - "Virtualization type: {{ansible_virtualization_type}}"
           - "Home: {{lookup('ansible.builtin.env', 'HOME')}}"
+    - name: save inventory variables before test overrides
+      set_fact:
+        _inventory_vlans: "{{vlans | default({})}}"
+        _inventory_dhcp_networks: "{{dhcp_networks | default({})}}"
+        _inventory_network_nodes: "{{network_nodes | default({})}}"
+        _inventory_dns_domain: "{{dns_domain | default('')}}"
     - name: clone data-utilities
       ansible.builtin.git:
         repo: https://github.com/aardsoft/ansible-data-utilities.git
@@ -19,6 +25,7 @@
         dhcp_group: "{{ansible_facts.user_gid}}"
         dhcpd_isc_conf: /dhcpd.conf
 
+# test an almost empty dhcp definition, with no subnets defined
 - name: test 1
   hosts: localhost
   connection: local
@@ -32,6 +39,9 @@
   roles:
     - dhcpd-isc
 
+# this restores the variables configured by the inventory plugin.
+# the data in the vars is now ignored, but we use the pre-parsed
+# inventory data
 - name: test 2
   hosts: localhost
   connection: local
@@ -39,12 +49,30 @@
   vars:
     config_prefix: test_results/test2
   pre_tasks:
-    - name: clear environment
-      include_vars:
-        file: reset_variables.yml
+    - name: restore inventory variables
+      set_fact:
+        vlans: "{{_inventory_vlans}}"
+        dhcp_networks: "{{_inventory_dhcp_networks}}"
+        network_nodes: "{{_inventory_network_nodes}}"
+        dns_domain: "{{_inventory_dns_domain}}"
+  roles:
+    - dhcpd-isc
+
+# this now overrides the inventory data with subnet definitions from the
+# variables. The result is pretty much identical to the first test - due
+# to the missing pre-parsed additional data the role skips pretty much all
+# of it.
+# TODO: add a 4th test with manual preparsed data
+- name: test 3
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    config_prefix: test_results/test3
+  pre_tasks:
     - name: load environment
       include_vars:
-        file: test2.yml
+        file: test3.yml
   roles:
     - dhcpd-isc
 

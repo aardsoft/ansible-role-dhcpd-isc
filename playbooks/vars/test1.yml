@@ -1,2 +1,3 @@
 vlans:
   "default": "1"
+dhcp_networks: {}
