@@ -7,45 +7,5 @@ on:
   workflow_dispatch:
 
 jobs:
-      build-images:
-        runs-on: opensuse-leap-imgbuild
-        steps:
-          - name: 'Checkout GitHub Action'
-            uses: actions/checkout@main
-
-          - name: 'Checkout tinydns-sidecar'
-            uses: actions/checkout@main
-            with:
-              repository: aardsoft/tinydns-sidecar
-              path: tinydns-sidecar
-
-          - name: 'Set up Go'
-            uses: actions/setup-go@v5
-            with:
-              go-version-file: tinydns-sidecar/go.mod
-              cache-dependency-path: tinydns-sidecar/go.sum
-
-          - name: 'Build tinydns-sidecar and tinydns-rebuild'
-            run: |
-              mkdir -p container-image/root/usr/bin
-              cd tinydns-sidecar
-              CGO_ENABLED=0 go build -ldflags="-s -w" \
-                -o ../container-image/root/usr/bin/tinydns-sidecar \
-                ./cmd/tinydns-sidecar
-              CGO_ENABLED=0 go build -ldflags="-s -w" \
-                -o ../container-image/root/usr/bin/tinydns-rebuild \
-                ./cmd/tinydns-rebuild
-
-          - name: 'Login to GitHub Container Registry'
-            uses: redhat-actions/podman-login@v1
-            with:
-              registry: ghcr.io
-              username: ${{github.actor}}
-              password: ${{secrets.GITHUB_TOKEN}}
-
-          - name: Build leap base image
-            uses: aardsoft/ci-actions/kiwi-build@master
-            with:
-              image-directory: container-image
-              extra-repositories: |
-                https://download.opensuse.org/repositories/home:/bhwachter:/server/openSUSE_Leap_15.6/
+  build:
+    uses: aardsoft/ansible-data-utilities/.github/workflows/build-role-container.yml@master
