@@ -37,7 +37,7 @@
       include_vars:
         file: test1.yml
   roles:
-    - dhcpd-isc
+    - role: ../
 
 # this restores the variables configured by the inventory plugin.
 # the data in the vars is now ignored, but we use the pre-parsed
@@ -56,7 +56,7 @@
         network_nodes: "{{_inventory_network_nodes}}"
         dns_domain: "{{_inventory_dns_domain}}"
   roles:
-    - dhcpd-isc
+    - role: ../
 
 # this now overrides the inventory data with subnet definitions from the
 # variables. The result is pretty much identical to the first test - due
@@ -74,7 +74,7 @@
       include_vars:
         file: test3.yml
   roles:
-    - dhcpd-isc
+    - role: ../
 
 - name: check for changed test files
   hosts: localhost
