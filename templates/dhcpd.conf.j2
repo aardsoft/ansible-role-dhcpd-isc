@@ -68,6 +68,15 @@ option {{optionspace}}.{{option}};
 
 {# also todo: add dynamic ranges #}
 
+{# dhcp_ignore_subnets: list of {network, netmask} dicts for interfaces dhcpd   #}
+{# must know about but should not serve (e.g. k3s pod network on eth0)          #}
+{% if dhcp_ignore_subnets is defined %}
+{% for subnet in dhcp_ignore_subnets %}
+# interface subnet - no DHCP served here
+subnet {{subnet.network}} netmask {{subnet.netmask}} {}
+{% endfor %}
+{% endif %}
+
 {% for vlan in vlans %}
 {# vlan_data is used to store network address and mask of each subnet, to be #}
 {# cleared in each loop. This way we can make sure configuration shows up in #}
