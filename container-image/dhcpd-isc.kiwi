@@ -7,7 +7,7 @@
         <specification>Leap based container for ISC DHCP</specification>
     </description>
     <preferences>
-        <type image="docker" derived_from="ghcr.io/aardsoft/leap-base:latest">
+        <type image="docker" derived_from="ghcr.io/aardsoft/leap16-base:latest">
           <containerconfig name="ghcr.io/aardsoft/dhcpd-isc" tag="0.1" additionalnames=":latest" user="root">
             <subcommand execute="/usr/sbin/dhcpd">
               <argument name="-4"/>

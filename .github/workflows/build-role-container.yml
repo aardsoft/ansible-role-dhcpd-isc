@@ -13,4 +13,4 @@ jobs:
     uses: aardsoft/ansible-data-utilities/.github/workflows/build-role-container.yml@master
     with:
       extra-architectures: aarch64
-      extra-repositories: https://download.opensuse.org/update/leap/15.6/oss/
+      repository: https://download.opensuse.org/distribution/leap/16.0/repo/oss
