@@ -1,3 +1,5 @@
+  # we need a line break at the beginning, to make sure this does not end up in
+  # a comment. Putting a comment here worst case puts a comment into a comment.
   subnet {{dhcp_networks[vlan].subnets[subnet].subnet_network}} netmask {{dhcp_networks[vlan].subnets[subnet].subnet_netmask}} {
     option domain-name {{dhcp_networks[vlan].dhcp_domain_name}};
     option domain-search {{dhcp_networks[vlan].dhcp_domain_search}};
