@@ -160,7 +160,7 @@ copy_var(){
                 # order in fstab matters here - the new var entry needs to be before the overlay mount
                 grep -v " /var \|overlay" /sysroot/etc/fstab > /sysroot/etc/fstab.new
                 echo "$(blkid -o export ${var_part} | grep ^UUID=) /var btrfs defaults,x-initrd.mount 0 0" >> /sysroot/etc/fstab.new
-                grep overlay /sysroot/etc/fstab >> /sysroot/etc/fstab.new
+                grep overlay /sysroot/etc/fstab >> /sysroot/etc/fstab.new || true
                 cp -a /sysroot/etc/fstab.new /sysroot/etc/fstab
                 btrfs property set /sysroot ro true
                 mount -o remount,ro /sysroot
