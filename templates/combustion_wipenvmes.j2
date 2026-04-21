@@ -1,0 +1,10 @@
+# there's a weird thing where install ends up on the second nvme, especially if it's a
+# reinstall. Just wipe everything and have combustion barf if that's the case
+
+wipe_nvmes(){
+    if [ "$rootdisk" = "nvme1n1" ]; then
+        dd if=/dev/zero of=/dev/nvme0n1 bs=1024k count=25000
+        dd if=/dev/zero of=/dev/nvme1n1 bs=1024k count=25000
+        exit 1
+    fi
+}
