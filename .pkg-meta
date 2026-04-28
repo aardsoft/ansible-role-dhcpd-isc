@@ -1,0 +1,3 @@
+name=dhcpd-isc
+public_release=1
+pkg_description="Configure the ISC DHCP server"
