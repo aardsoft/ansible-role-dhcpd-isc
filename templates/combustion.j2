@@ -169,6 +169,77 @@ copy_var(){
     fi
 }
 
+###
+# end of hw setup functions, rest are convenience functions that may prevent
+# reboots on first ansible run
+
+add_management_user(){
+    local _name=${1:-{{adm_user|default('management')}}}
+    local _group=${2:-{{adm_group|default('management')}}}
+    local _uid=${3:-{{adm_uid|default(10000)}}}
+    local _gid=${4:-{{adm_gid|default(10000)}}}
+    local _mounted_home=false
+
+    if ! mountpoint -q "${rootmount}/home"; then
+        mount /dev/$rootdev "${rootmount}/home" -o subvol=@/home && mounted_home=true
+    fi
+
+    groupadd -g ${_gid} ${_group}
+    useradd -m -g ${_group} -u ${_uid} -s /bin/bash ${_name}
+
+    mkdir -p "/home/management/.ssh"
+
+    if [ -f /root/.ssh/authorized_keys ]; then
+        cp /root/.ssh/authorized_keys /home/management/.ssh/authorized_keys
+    fi
+    chown -R management:management "/home/management/.ssh"
+    chmod 700 "/home/management/.ssh"
+    chmod 600 "/home/management/.ssh/authorized_keys"
+
+    if [ "$mounted_home" = true ]; then
+        umount "${rootmount}/home"
+    fi
+
+    cat > /etc/sudoers.d/ansible-access << EOF
+# Ansible managed
+${_name} ALL = (ALL) NOPASSWD:ALL
+EOF
+}
+
+remove_default_repositories(){
+    rm -f /etc/zypp/repos.d/*
+}
+
+add_default_packages(){
+    remove_default_repositories
+
+    _url=${1:-{{suse_microos_url|default("")}}}?ssl_verify=no
+    _url_extra=${2:-{{suse_microos_extra_url|default("")}}}?ssl_verify=no
+
+    if [ -z "${_url}" && -L /dev/disk/by-label/openSUSE-MicroOS-DVD-x86_64 ]; then
+        # TODO, we should support other architectures as well
+        _url="hd:/?device=/dev/disk/by-label/openSUSE-MicroOS-DVD-x86_64"
+    fi
+
+    if [ -n "${_url}" ]; then
+        zypper ar -t yast2 "${_url}" microos
+        if [ -n "${_url_extra}" ]; then
+            zypper ar -t yast2 "${_url_extra}" microos-extra
+        fi
+
+        # we only install packages if a repository is configured
+        zypper --non-interactive ref -f
+        zypper --non-interactive install vim-small wget dmidecode toolbox lsof net-tools which jq python3-selinux python3-firewall
+
+        # those will only work if we have more than the base microos image
+        zypper --non-interactive install parted sensors smartmontools hdparm screen strace sysstat || true
+    fi
+}
+
+remove_default_repositories(){
+    rm -f /etc/zypp/repos.d/*
+}
+
 default_initrd(){
     resize_root_device
     add_var_partition
