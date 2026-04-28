@@ -1,0 +1,445 @@
+#+TITLE: Ansible role: dhcpd-isc
+
+* Introduction
+
+This role installs and configures the ISC DHCP server. It generates =dhcpd.conf= from network topology variables shared with the [[https://github.com/aardsoft/ansible-data-utilities][data-utilities]] inventory plugin, and optionally sets up TFTP and HTTP boot infrastructure for PXE and UEFI network booting.
+
+The role detects whether it is running against a live host or in local connection mode. In local connection mode (=ansible_connection == "local"=) no packages are installed or services modified — only configuration files are written. This is useful for generating configurations for review or testing without a target host.
+
+* Configuration
+
+Network topology variables (=vlans=, =dhcp_networks=, =network_nodes=) are typically provided by the data-utilities inventory plugin. They can also be set manually in group or host variables, though as data-utilities does a lot of resolving of implicit dependencies it is not recommended. For convenience some generic host keys are documented below, for latest documentation check data-utilities.
+
+** Global variables
+
+*** =dhcp_user=
+User that owns the DHCP configuration files. Defaults to =root=.
+
+*** =dhcp_group=
+Group that owns the DHCP configuration files. Defaults to =root=.
+
+*** =config_prefix=
+Prefix prepended to all configuration file paths. Useful for local testing. Defaults to =""=.
+
+*** =dhcpd_isc_conf=
+Override the default path to =dhcpd.conf=. If unset the path is =.../etc/dhcpd.conf= on SuSE and =.../etc/dhcp/dhcpd.conf= on other distributions, with =config_prefix= prepended.
+
+*** =dhcp_authoritative_flag=
+Sets the authoritative directive in =dhcpd.conf=. Defaults to =authoritative=.
+
+*** =dhcp_firewall_zones=
+List of firewalld zones to open the DHCP service on:
+
+#+BEGIN_SRC yaml
+dhcp_firewall_zones:
+  - internal
+#+END_SRC
+
+** dhcpd dict
+
+The =dhcpd= dict controls daemon-level settings:
+
+*** interfaces
+List of interfaces for the DHCPv4 server to listen on. Defaults to =any= when missing:
+
+#+BEGIN_SRC yaml
+dhcpd:
+  interfaces:
+    - eth0
+    - eth1
+#+END_SRC
+
+*** interfaces_v6
+List of interfaces for the DHCPv6 server to listen on. Defaults to empty.
+
+*** chroot
+Whether to run dhcpd in a chroot jail. Defaults to =yes=. Only written to the sysconfig file on SuSE systems.
+
+** Network topology variables
+
+*** =vlans=
+Dict mapping VLAN names to VLAN IDs. Drives the top-level structure of =dhcpd.conf=:
+
+#+BEGIN_SRC yaml
+vlans:
+  "default": "1"
+  "servers": "10"
+#+END_SRC
+
+Note that on new deployments this should be configured for the inventory plugin.
+
+*** =dhcp_networks=
+Dict of per-VLAN network configuration, keyed by VLAN name. Each entry corresponds to a =shared-network= block in =dhcpd.conf=.
+
+#+BEGIN_SRC yaml
+dhcp_networks:
+  default:
+    dhcp_domain_name: "example.com"
+    dhcp_domain_search: '"example.com"'
+    options:
+      - "option routers 192.168.1.1"
+    subnets:
+      "192.168.1.0/24":
+  servers:
+    dhcp_domain_name: "servers.example.com"
+    dhcp_domain_search: '"servers.example.com", "example.com"'
+    relay: true
+    subnets:
+      "10.0.10.0/24":
+        sites:
+          - site_a
+        options:
+          - "option routers 10.0.10.1"
+        boot_options:
+          pxe:
+            - "next-server 10.0.10.5"
+          http:
+            - "option vendor-class-identifier \"HTTPClient\""
+#+END_SRC
+
+Note that on new deployments this should be configured for the inventory plugin.
+
+**** Per-VLAN keys
+
+- =dhcp_domain_name=: domain-name option sent to clients
+- =dhcp_domain_search=: domain-search option sent to clients
+- =options=: list of raw directives added at the =shared-network= level
+- =relay=: when =true=, generates a class matching on =agent.circuit-id= for relay environments
+- =subnets=: dict of subnets (see below)
+
+**** Per-subnet keys
+
+The subnet key itself may be a CIDR prefix (=192.168.1.0/24=), from which network address and netmask are derived. Alternatively =subnet_network= and =subnet_netmask= can be set explicitly.
+
+- =subnet_network=: network address, if not derivable from the key
+- =subnet_netmask=: netmask, if not derivable from the key
+- =sites=: list of site names — the subnet is only included when =site.name= matches one of the listed values
+- =options=: list of raw dhcpd directives added inside the =subnet= block
+- =boot_options=: dict with =pxe= and/or =http= keys, each a list of directives added inside the subnet for that boot type
+
+*** =network_nodes=
+Dict of host definitions used to generate static host entries inside each =shared-network= group block. Typically provided by the inventory plugin.
+
+#+BEGIN_SRC yaml
+network_nodes:
+  myhost:
+    networks:
+      eth0:
+        hwaddr: "00:11:22:33:44:55"
+        ipv4: "192.168.1.10/24"
+        dhcp_network: default
+        gateway: "192.168.1.1"
+        dhcp_options:
+          - "option host-name \"myhost\""
+#+END_SRC
+
+**** Per-interface keys
+
+- =hwaddr=: Ethernet MAC address (mandatory for static assignment)
+- =ipv4=: IPv4 address in CIDR notation (mandatory for static assignment)
+- =dhcp_network=: VLAN name this interface belongs to. If unset the interface is not added to any =shared-network=.
+- =gateway=: per-host router option
+- =dns_name=: overrides the hostname used in the =host= declaration. Defaults to =<node>.<dns_domain>=.
+- =dhcp_options=: list of raw dhcpd directives added inside the =host= block
+
+*** =dns_domain=
+Default DNS domain appended to node names when generating =host= declarations. Set in group or host vars.
+
+** Global DHCP options and option spaces
+
+*** =dhcp_options=
+List of raw dhcpd directives added at the global level, without the trailing semicolon:
+
+#+BEGIN_SRC yaml
+dhcp_options:
+  - "option domain-name \"example.com\""
+  - "default-lease-time 3600"
+#+END_SRC
+
+*** =dhcp_optionspaces=
+Dict of custom vendor option spaces. Each key is the option space name; the =options= list contains option definitions:
+
+#+BEGIN_SRC yaml
+dhcp_optionspaces:
+  SUNW:
+    options:
+      - "root-mount-options code 1 = text"
+      - "root-server-ip-address code 2 = ip-address"
+#+END_SRC
+
+*** =dhcp_ignore_subnets=
+List of =network=/=netmask= dicts for subnets dhcpd must know about but should not serve (for example a container overlay network on a shared interface):
+
+#+BEGIN_SRC yaml
+dhcp_ignore_subnets:
+  - network: 10.42.0.0
+    netmask: 255.255.0.0
+#+END_SRC
+
+** Network boot variables
+
+Set =dhcp_boot: true= to enable the PXE/HTTP boot configuration. When enabled the role installs boot packages (syslinux, tftp-server, shim, grub2-efi on supported distributions), copies bootloader files and generates grub and combustion configurations.
+
+*** =dhcp_boot=
+Enable PXE/HTTP boot support. Defaults to =false=.
+
+*** =tftpboot_directory=
+Path to the TFTP root directory. Defaults to =/tftpboot=.
+
+*** =uefi_http_boot_directory=
+Path to the UEFI HTTP boot root directory. When defined, bootloader files and the grub configuration are also written here for HTTP boot. Optional.
+
+*** =dhcp_pxe_filename=
+Global PXE boot filename added to the =pxeclients= class in =dhcpd.conf=. Overridden by =netboot.pxe_filename= when that is set.
+
+*** =dhcp_http_filename=
+Global HTTP boot filename added to the =httpclients= class in =dhcpd.conf=. Overridden by =netboot.http_filename= when that is set.
+
+*** =tftpboot_custom_pxe_shim= / =tftpboot_custom_pxe_grub=
+Override the shim and grub EFI binaries copied to the TFTP directory for PXE boot. When set the file is treated as a local source (=remote_src: no=).
+
+*** =tftpboot_custom_http_shim= / =tftpboot_custom_http_grub=
+Override the shim and grub EFI binaries for HTTP boot. When set the file is treated as a local source.
+
+** netboot dict
+
+The =netboot= dict controls the grub menu and OS definitions for network boot.
+
+*** pxe_filename / http_filename
+Boot filenames. These override the global =dhcp_pxe_filename= / =dhcp_http_filename= when set.
+
+*** firewall_zones
+List of firewalld zones to open the TFTP service on:
+
+#+BEGIN_SRC yaml
+netboot:
+  firewall_zones:
+    - internal
+#+END_SRC
+
+*** http_prefix
+Prefix for HTTP paths in the generated grub configuration. Defaults to ="s"=.
+
+*** grub
+Grub menu settings:
+
+#+BEGIN_SRC yaml
+netboot:
+  grub:
+    default: master
+    fallback: local
+    timeout: 10
+#+END_SRC
+
+Set =nomaster: true=, =nolocal: true=, or =nofwsetup: true= at the top level of =netboot= to suppress the corresponding default menu entries.
+
+*** os
+Dict of OS definitions referenced by =entries=:
+
+#+BEGIN_SRC yaml
+netboot:
+  os:
+    microos:
+      name: openSUSE MicroOS
+      linuxefi:
+        path: /microos/linux
+        args: "root=live:CDLABEL=openSUSE-MicroOS-DVD-x86_64"
+        source: "http://mirror.example.com/microos/linux"
+      initrdefi:
+        path: /microos/initrd
+        source: "http://mirror.example.com/microos/initrd"
+#+END_SRC
+
+- =name=: display name prefix in the grub menu
+- =linuxefi=: kernel configuration with =path=, optional =args=, and =source= for downloading
+- =initrdefi=: initrd configuration with =path= and =source=
+- =efi_prefix=: override the HTTP prefix for this OS only
+- =path=: base directory path to create on the boot server
+- =source=: archive URL to extract into =path=
+
+*** entries
+Dict of grub menu entries:
+
+#+BEGIN_SRC yaml
+netboot:
+  entries:
+    install_microos:
+      name: "Install openSUSE MicroOS"
+      os: microos
+      args: "autoyast=http://server/autoyast.xml"
+#+END_SRC
+
+*** combustion
+Configuration for the combustion script deployed alongside the boot files. See the [[#combustion][Combustion]] section below.
+
+* Combustion
+:PROPERTIES:
+:CUSTOM_ID: combustion
+:END:
+
+When =dhcp_boot= is enabled a combustion script is deployed to the =combustion/= subdirectory of both the TFTP and HTTP boot directories. The script provides shell functions for common MicroOS first-boot tasks (disk resizing, var partition setup, NVMe RAID1, management user creation, package installation).
+
+The script's behaviour is controlled through the =netboot.combustion= dict and several top-level variables.
+
+** Management user
+
+*** =adm_user=
+Name of the management user created by =add_management_user=. Defaults to =management=.
+
+*** =adm_group=
+Group name for the management user. Defaults to =management=.
+
+*** =adm_uid= / =adm_gid=
+UID/GID for the management user. Both default to =10000=.
+
+** SSH keys
+
+The =add_root_ssh_keys= function populates =/root/.ssh/authorized_keys=. Key material is read at template rendering time from the Ansible controller:
+
+*** =management_keys=
+List of filenames under =authorized_keys.d/= (relative to the playbook). When set all listed files are concatenated into the authorized_keys file.
+
+When =management_keys= is not set the file =authorized_keys= (relative to the playbook) is used directly.
+
+** Package installation
+
+*** =suse_microos_url=
+URL of the primary repository added by =add_default_packages=. =ssl_verify=no= is appended automatically.
+
+*** =suse_microos_extra_url=
+URL of a secondary repository. Optional.
+
+** netboot.combustion keys
+
+*** scriptlets
+List of Jinja2 template filenames to include verbatim into the combustion script, resolved relative to the role's =templates/= directory:
+
+#+BEGIN_SRC yaml
+netboot:
+  combustion:
+    scriptlets:
+      - combustion_wipenvmes.j2
+#+END_SRC
+
+*** commands_initrd
+List of shell commands run in the initrd phase (=--prepare= mode). When absent the =default_initrd= function is called (resize root, add var partition, copy var).
+
+*** commands_noinitrd
+List of shell commands run outside the initrd. When absent the =default_noinitrd= function is called (add root SSH keys).
+
+*** commands
+List of shell commands always appended after the phase-conditional blocks.
+
+* Examples
+
+** Minimal DHCP server
+
+#+BEGIN_SRC yaml
+vlans:
+  "default": "1"
+
+dhcp_networks:
+  default:
+    dhcp_domain_name: "example.com"
+    dhcp_domain_search: '"example.com"'
+    subnets:
+      "192.168.1.0/24":
+        options:
+          - "option routers 192.168.1.1"
+          - "range 192.168.1.100 192.168.1.200"
+#+END_SRC
+
+** Static host assignments
+
+#+BEGIN_SRC yaml
+vlans:
+  "default": "1"
+
+dns_domain: example.com
+
+dhcp_networks:
+  default:
+    dhcp_domain_name: "example.com"
+    dhcp_domain_search: '"example.com"'
+    subnets:
+      "192.168.1.0/24":
+        options:
+          - "option routers 192.168.1.1"
+
+network_nodes:
+  printer:
+    networks:
+      eth0:
+        hwaddr: "aa:bb:cc:dd:ee:ff"
+        ipv4: "192.168.1.50/24"
+        dhcp_network: default
+  server1:
+    networks:
+      eth0:
+        hwaddr: "00:11:22:33:44:55"
+        ipv4: "192.168.1.10/24"
+        dhcp_network: default
+        gateway: "192.168.1.1"
+#+END_SRC
+
+** PXE and HTTP boot with openSUSE MicroOS
+
+#+BEGIN_SRC yaml
+dhcp_boot: true
+tftpboot_directory: /srv/tftpboot
+uefi_http_boot_directory: /srv/httpboot
+
+netboot:
+  pxe_filename: "shim.efi"
+  http_filename: "http://boot.example.com/shim.efi"
+  firewall_zones:
+    - internal
+  grub:
+    default: master
+    timeout: 5
+  os:
+    microos:
+      name: openSUSE MicroOS
+      linuxefi:
+        path: /microos/linux
+        source: "http://mirror.example.com/microos/linux"
+      initrdefi:
+        path: /microos/initrd
+        source: "http://mirror.example.com/microos/initrd"
+  entries:
+    install:
+      name: "Install openSUSE MicroOS"
+      os: microos
+  combustion:
+    scriptlets:
+      - combustion_wipenvmes.j2
+
+management_keys:
+  - admin_key
+  - ops_key
+#+END_SRC
+
+** Multi-site deployment
+
+Subnets restricted to specific sites are skipped when the =site.name= variable does not match. The =site= variable is typically set by the inventory plugin:
+
+#+BEGIN_SRC yaml
+vlans:
+  "mgmt": "100"
+
+dhcp_networks:
+  mgmt:
+    dhcp_domain_name: "mgmt.example.com"
+    dhcp_domain_search: '"mgmt.example.com"'
+    subnets:
+      "10.100.1.0/24":
+        sites:
+          - site_a
+        options:
+          - "option routers 10.100.1.1"
+      "10.100.2.0/24":
+        sites:
+          - site_b
+        options:
+          - "option routers 10.100.2.1"
+#+END_SRC
